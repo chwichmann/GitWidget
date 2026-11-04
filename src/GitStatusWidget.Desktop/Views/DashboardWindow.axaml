@@ -17,7 +17,8 @@
         <Button DockPanel.Dock="Bottom" HorizontalAlignment="Stretch" Content="Diagnostics…" Command="{Binding OpenDiagnosticsCommand}" Margin="0,6,0,0" />
         <Button DockPanel.Dock="Bottom" HorizontalAlignment="Stretch" Content="Settings…" Command="{Binding OpenSettingsCommand}" Margin="0,8,0,0" />
         <TextBlock DockPanel.Dock="Top" Classes="section" Text="Repositories" Margin="6,4,0,8" />
-        <ListBox ItemsSource="{Binding Repositories}" SelectedItem="{Binding SelectedRepository}" Background="Transparent">
+        <TextBlock DockPanel.Dock="Bottom" Classes="caption" Text="Drag to reorder" Margin="6,6,0,0" IsVisible="{Binding HasRepositories}" />
+        <ListBox x:Name="RepositoryList" ItemsSource="{Binding Repositories}" SelectedItem="{Binding SelectedRepository}" Background="Transparent">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:RepositoryNavItem">
               <StackPanel Spacing="2">

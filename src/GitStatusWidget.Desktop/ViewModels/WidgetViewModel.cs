@@ -18,6 +18,8 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     private readonly IAppNavigator _navigator;
     private readonly TimeProvider _time;
     private readonly ITimer _freshnessTimer;
+    private readonly SettingsService? _settings;
+    private bool _reordering;
 
     public WidgetViewModel(
         IRepositoryStatusHub hub,
@@ -25,8 +27,10 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         ISynchronizationController controller,
         IUiDispatcher ui,
         IAppNavigator navigator,
-        TimeProvider time)
+        TimeProvider time,
+        SettingsService? settings = null)
     {
+        _settings = settings;
         _hub = hub;
         _projector = projector;
         _controller = controller;
@@ -71,6 +75,35 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private void Hide() => _navigator.HideWidget();
+
+    /// <summary>Starts a drag reorder: background updates no longer re-sort the rows until it is committed.</summary>
+    public void BeginReorder() => _reordering = true;
+
+    /// <summary>Moves a row during a drag reorder.</summary>
+    public void MoveRow(int from, int to)
+    {
+        if (from >= 0 && from < Rows.Count && to >= 0 && to < Rows.Count && from != to)
+        {
+            Rows.Move(from, to);
+        }
+    }
+
+    /// <summary>Persists the current row order as the repository order (same as reordering in Settings).</summary>
+    public async Task CommitReorderAsync()
+    {
+        try
+        {
+            if (_settings is not null)
+            {
+                await _settings.ReorderAsync(Rows.Select(r => r.Id).ToList(), CancellationToken.None).ConfigureAwait(true);
+            }
+        }
+        finally
+        {
+            _reordering = false;
+            SortRows();
+        }
+    }
 
     public void Dispose()
     {
@@ -141,6 +174,11 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     /// <summary>Keeps rows in user-defined order (SortOrder can change in Settings); Move keeps row instances.</summary>
     private void SortRows()
     {
+        if (_reordering)
+        {
+            return;
+        }
+
         var order = _hub.States.Select(s => s.Id).ToList();
         var sorted = Rows.OrderBy(r => order.IndexOf(r.Id) is var i && i >= 0 ? i : int.MaxValue).ToList();
         for (var target = 0; target < sorted.Count; target++)

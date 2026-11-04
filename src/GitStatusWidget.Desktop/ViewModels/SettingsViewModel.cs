@@ -246,6 +246,22 @@ public sealed partial class SettingsViewModel : ObservableObject
         editor.HasStoredToken = true;
     }
 
+    /// <summary>Moves a repository (buttons and drag &amp; drop) and keeps it selected.</summary>
+    public void MoveTo(int from, int to)
+    {
+        if (from < 0 || from >= Repositories.Count || to < 0 || to >= Repositories.Count || from == to)
+        {
+            return;
+        }
+
+        var item = Repositories[from];
+        Repositories.Move(from, to);
+
+        // The list control drops its selection on Move; re-assigning the same value would not notify.
+        Selected = null;
+        Selected = item;
+    }
+
     private void Move(int delta)
     {
         if (Selected is null)
@@ -254,11 +270,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         var index = Repositories.IndexOf(Selected);
-        var target = index + delta;
-        if (target >= 0 && target < Repositories.Count)
-        {
-            Repositories.Move(index, target);
-        }
+        MoveTo(index, index + delta);
     }
 
     private void Reload()

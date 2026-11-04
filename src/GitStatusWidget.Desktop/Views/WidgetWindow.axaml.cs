@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using GitStatusWidget.Desktop.Controls;
 using GitStatusWidget.Desktop.Services;
 using GitStatusWidget.Desktop.ViewModels;
 
@@ -11,11 +12,25 @@ namespace GitStatusWidget.Desktop.Views;
 public partial class WidgetWindow : Window
 {
     private readonly MotionPreference? _motion;
+    private readonly DragReorder _reorder;
 
     public WidgetWindow()
     {
         InitializeComponent();
         DragArea.PointerPressed += OnDragPointerPressed;
+
+        // Rows can be dragged to reorder repositories; the new order is saved on drop.
+        _reorder = new DragReorder(
+            RowsList,
+            (from, to) => (DataContext as WidgetViewModel)?.MoveRow(from, to),
+            async _ =>
+            {
+                if (DataContext is WidgetViewModel vm)
+                {
+                    await vm.CommitReorderAsync().ConfigureAwait(true);
+                }
+            });
+        _reorder.DragStarted += (_, _) => (DataContext as WidgetViewModel)?.BeginReorder();
         RowsList.ContainerPrepared += OnRowPrepared;
         RowsList.ContainerClearing += OnRowClearing;
     }
@@ -68,6 +83,11 @@ public partial class WidgetWindow : Window
 
     private void OnRowTapped(object? sender, TappedEventArgs e)
     {
+        if (_reorder.JustDragged)
+        {
+            return;
+        }
+
         if (sender is Control { DataContext: RepositoryRowViewModel row } && DataContext is WidgetViewModel vm)
         {
             vm.OpenDashboardCommand.Execute(row);

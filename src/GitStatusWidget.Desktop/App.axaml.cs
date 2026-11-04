@@ -29,6 +29,11 @@ public partial class App : Avalonia.Application
         }
 
         desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        if (OperatingSystem.IsMacOS())
+        {
+            // Agent apps have no app menu; Cmd+C/V/X/A/Z only reach text fields through an Edit menu (issue #1).
+            NativeMenu.SetMenu(this, EditMenu.Create(() => desktop.Windows.FirstOrDefault(w => w.IsActive)));
+        }
         var tray = Services.GetRequiredService<TrayViewModel>();
         DataContext = tray;
         tray.RepositoriesChanged += (_, _) => RebuildRepositoryMenu(tray);

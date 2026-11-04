@@ -61,6 +61,25 @@ public sealed class SettingsService
         }
     }
 
+    /// <summary>Persists a new order of the given repositories (widget/dashboard drag &amp; drop).</summary>
+    public Task ReorderAsync(IReadOnlyList<Guid> order, CancellationToken cancellationToken) =>
+        UpdateAsync(s => s with { Repositories = Reorder(s.Repositories, order) }, cancellationToken);
+
+    /// <summary>
+    /// Puts the repositories listed in <paramref name="order"/> into that order, using the slots they already
+    /// occupy, so repositories not listed (for example disabled ones) keep their position. Renumbers SortOrder.
+    /// </summary>
+    internal static IReadOnlyList<RepositoryConfiguration> Reorder(IReadOnlyList<RepositoryConfiguration> repositories, IReadOnlyList<Guid> order)
+    {
+        var sorted = repositories.OrderBy(r => r.SortOrder).ToList();
+        var byId = sorted.ToDictionary(r => r.Id);
+        var moving = order.Where(byId.ContainsKey).Distinct().Select(id => byId[id]).ToList();
+        var movingIds = moving.Select(r => r.Id).ToHashSet();
+        var queue = new Queue<RepositoryConfiguration>(moving);
+        var result = sorted.Select(r => movingIds.Contains(r.Id) ? queue.Dequeue() : r).ToList();
+        return result.Select((r, index) => r with { SortOrder = index }).ToList();
+    }
+
     public Task UpdateAsync(Func<AppSettings, AppSettings> change, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(change);

@@ -33,7 +33,8 @@
               <Button Content="↓" Command="{Binding MoveDownCommand}" ToolTip.Tip="Move down" />
             </StackPanel>
             <CheckBox DockPanel.Dock="Bottom" Content="Delete stored token on remove" IsChecked="{Binding DeleteTokenOnRemove}" Margin="0,8,0,0" />
-            <ListBox ItemsSource="{Binding Repositories}" SelectedItem="{Binding Selected}">
+            <TextBlock DockPanel.Dock="Bottom" Classes="caption" Text="Drag to reorder, or use ↑ ↓." Margin="0,8,0,0" />
+            <ListBox x:Name="RepositoryList" ItemsSource="{Binding Repositories}" SelectedItem="{Binding Selected}">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:RepositoryEditorViewModel">
                   <StackPanel>

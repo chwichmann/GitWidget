@@ -43,6 +43,8 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     private readonly ActivityFeed _feed;
     private readonly TimeProvider _time;
     private string? _signature;
+    private readonly SettingsService? _settings;
+    private bool _reordering;
 
     public DashboardViewModel(
         IRepositoryStatusHub hub,
@@ -51,8 +53,10 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         IUiDispatcher ui,
         IAppNavigator navigator,
         ActivityFeed feed,
-        TimeProvider time)
+        TimeProvider time,
+        SettingsService? settings = null)
     {
+        _settings = settings;
         _hub = hub;
         _projector = projector;
         _controller = controller;
@@ -135,6 +139,43 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenSettings() => _navigator.ShowSettings(SelectedRepository?.Id, addNew: SelectedRepository is null);
 
+    /// <summary>Starts a drag reorder of the repository list.</summary>
+    public void BeginReorder() => _reordering = true;
+
+    /// <summary>Moves a repository in the selector and keeps the selection.</summary>
+    public void MoveRepository(int from, int to)
+    {
+        if (from < 0 || from >= Repositories.Count || to < 0 || to >= Repositories.Count || from == to)
+        {
+            return;
+        }
+
+        var selected = SelectedRepository;
+        var wasReordering = _reordering;
+        _reordering = true;
+        Repositories.Move(from, to);
+        SelectedRepository = null;
+        SelectedRepository = selected;
+        _reordering = wasReordering;
+    }
+
+    /// <summary>Persists the current selector order as the repository order.</summary>
+    public async Task CommitReorderAsync()
+    {
+        try
+        {
+            if (_settings is not null)
+            {
+                await _settings.ReorderAsync(Repositories.Select(r => r.Id).ToList(), CancellationToken.None).ConfigureAwait(true);
+            }
+        }
+        finally
+        {
+            _reordering = false;
+            SortNav();
+        }
+    }
+
     public void Dispose()
     {
         _hub.StateChanged -= OnStateChanged;
@@ -144,6 +185,11 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
     partial void OnSelectedRepositoryChanged(RepositoryNavItem? value)
     {
+        if (_reordering && value is null)
+        {
+            return; // The list control clears its selection while items move; the selection is restored right after.
+        }
+
         _signature = null;
         Rebuild();
         RebuildActivity();
@@ -191,6 +237,27 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         item.Status = health.Summary;
         item.HasProblem = health.State is not (RepositoryHealthState.Healthy or RepositoryHealthState.Refreshing);
         HasRepositories = Repositories.Count > 0;
+        SortNav();
+    }
+
+    /// <summary>Keeps the selector in the user-defined repository order (Move keeps instances and selection).</summary>
+    private void SortNav()
+    {
+        if (_reordering)
+        {
+            return;
+        }
+
+        var order = _hub.States.Select(s => s.Id).ToList();
+        var sorted = Repositories.OrderBy(r => order.IndexOf(r.Id) is var i && i >= 0 ? i : int.MaxValue).ToList();
+        for (var target = 0; target < sorted.Count; target++)
+        {
+            var current = Repositories.IndexOf(sorted[target]);
+            if (current != target)
+            {
+                MoveRepository(current, target);
+            }
+        }
     }
 
     private void Rebuild()
