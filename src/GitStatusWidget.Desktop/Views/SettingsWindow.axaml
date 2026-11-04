@@ -1,0 +1,146 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GitStatusWidget.Desktop.ViewModels"
+        xmlns:c="using:GitStatusWidget.Desktop.Converters"
+        x:Class="GitStatusWidget.Desktop.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="GitWidget – Settings"
+        Width="900" Height="640" MinWidth="760" MinHeight="480"
+        Icon="/Assets/gitwidget.png"
+        Background="{DynamicResource PageBackgroundBrush}"
+        WindowStartupLocation="CenterScreen">
+  <DockPanel>
+    <!-- Bottom bar -->
+    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" Padding="16,10" Background="{DynamicResource CardBackgroundBrush}">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Content="Cancel" Command="{Binding CancelCommand}" />
+          <Button Content="Save" Classes="accent" Command="{Binding SaveCommand}" IsEnabled="{Binding !IsBusy}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <TabControl Margin="8,4,8,0">
+      <TabItem Header="Repositories">
+        <Grid ColumnDefinitions="240,*" Margin="0,8,0,0">
+          <!-- List -->
+          <DockPanel Margin="0,0,12,0">
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+              <Button Content="Add" Command="{Binding AddCommand}" />
+              <Button Content="Remove" Command="{Binding RemoveCommand}" />
+              <Button Content="↑" Command="{Binding MoveUpCommand}" ToolTip.Tip="Move up" />
+              <Button Content="↓" Command="{Binding MoveDownCommand}" ToolTip.Tip="Move down" />
+            </StackPanel>
+            <CheckBox DockPanel.Dock="Bottom" Content="Delete stored token on remove" IsChecked="{Binding DeleteTokenOnRemove}" Margin="0,8,0,0" />
+            <ListBox ItemsSource="{Binding Repositories}" SelectedItem="{Binding Selected}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:RepositoryEditorViewModel">
+                  <StackPanel>
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="caption" Text="{Binding Provider}" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+
+          <!-- Editor -->
+          <ScrollViewer Grid.Column="1">
+            <Panel>
+              <TextBlock Text="Add a repository to get started." IsVisible="{Binding Selected, Converter={x:Static ObjectConverters.IsNull}}" Margin="8" />
+              <StackPanel DataContext="{Binding Selected}" x:DataType="vm:RepositoryEditorViewModel" Spacing="10" Margin="0,0,12,12"
+                          IsVisible="{Binding $parent[Window].((vm:SettingsViewModel)DataContext).Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto,Auto" >
+                  <TextBlock Text="Provider" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding Providers}" SelectedItem="{Binding Provider}" MinWidth="160" />
+
+                  <TextBlock Grid.Row="1" Text="Server" VerticalAlignment="Center" Margin="0,8,0,0" />
+                  <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ServerUrl}" PlaceholderText="https://gitlab.example.com/" Margin="0,8,0,0" />
+
+                  <TextBlock Grid.Row="2" Text="Repository" VerticalAlignment="Center" Margin="0,8,0,0" />
+                  <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding RepositoryPath}" PlaceholderText="owner/name, group/subgroup/project, or paste the URL" Margin="0,8,0,0" />
+
+                  <TextBlock Grid.Row="3" Text="Display name" VerticalAlignment="Center" Margin="0,8,0,0" />
+                  <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding DisplayName}" PlaceholderText="optional" Margin="0,8,0,0" />
+                </Grid>
+
+                <Border Classes="card">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="section" Text="Access token" />
+                    <TextBlock Classes="subtle" Text="{Binding TokenHint}" TextWrapping="Wrap" />
+                    <TextBox PasswordChar="•" Text="{Binding NewToken}" PlaceholderText="Paste a new token" RevealPassword="False" />
+                    <TextBlock Classes="caption" Text="{Binding TokenStatus}" />
+                    <TextBlock Classes="caption" Text="{Binding $parent[Window].((vm:SettingsViewModel)DataContext).CredentialStoreName, StringFormat='Stored in: {0}'}" />
+                  </StackPanel>
+                </Border>
+
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <Button Content="Test connection" Command="{Binding $parent[Window].((vm:SettingsViewModel)DataContext).TestConnectionCommand}" IsEnabled="{Binding !IsTesting}" />
+                  <TextBlock Text="{Binding ConnectionMessage}" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="460"
+                             Foreground="{Binding ConnectionOk, Converter={x:Static c:ConnectionBrushConverter.Instance}}" />
+                </StackPanel>
+                <TextBlock Text="{Binding ValidationMessage}" Foreground="{DynamicResource FailureBrush}" TextWrapping="Wrap" IsVisible="{Binding ValidationMessage, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                <Border Classes="card">
+                  <StackPanel Spacing="8">
+                    <TextBlock Classes="section" Text="Display" />
+                    <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto">
+                      <TextBlock Text="Widget milestone" VerticalAlignment="Center" />
+                      <ComboBox Grid.Column="1" ItemsSource="{Binding MilestoneChoices}" SelectedItem="{Binding SelectedMilestone}" MinWidth="260" />
+                      <TextBlock Grid.Row="1" Text="Highlighted labels" VerticalAlignment="Center" Margin="0,8,0,0" />
+                      <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding HighlightedLabels}" PlaceholderText="e.g. Bug, Finding, Security" Margin="0,8,0,0" />
+                    </Grid>
+                    <CheckBox Content="Monitor this repository" IsChecked="{Binding IsEnabled}" />
+                  </StackPanel>
+                </Border>
+
+                <Expander Header="Advanced">
+                  <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="200,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                      <TextBlock Text="Issues interval (s)" VerticalAlignment="Center" />
+                      <NumericUpDown Grid.Column="1" Value="{Binding IssueIntervalSeconds}" Minimum="15" Maximum="3600" Increment="5" FormatString="0" Width="140" HorizontalAlignment="Left" />
+                      <TextBlock Grid.Row="1" Text="Builds interval (s)" VerticalAlignment="Center" Margin="0,8,0,0" />
+                      <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding BuildIntervalSeconds}" Minimum="15" Maximum="3600" Increment="5" FormatString="0" Width="140" HorizontalAlignment="Left" Margin="0,8,0,0" />
+                      <TextBlock Grid.Row="2" Text="Milestones/labels (min)" VerticalAlignment="Center" Margin="0,8,0,0" />
+                      <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding MetadataIntervalMinutes}" Minimum="1" Maximum="120" FormatString="0" Width="140" HorizontalAlignment="Left" Margin="0,8,0,0" />
+                      <TextBlock Grid.Row="3" Text="User-Agent" VerticalAlignment="Center" Margin="0,8,0,0" />
+                      <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding UserAgent}" PlaceholderText="default: GitWidget/version" Margin="0,8,0,0" />
+                    </Grid>
+                    <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding IsGitLab}"
+                               Text="If your GitLab sits behind an access gateway that only admits git clients, use a User-Agent such as 'GitWidget/0.1 git/2.47.0'." />
+                    <CheckBox Content="Allow insecure http (internal servers only)" IsChecked="{Binding AllowInsecureHttp}" />
+                  </StackPanel>
+                </Expander>
+              </StackPanel>
+            </Panel>
+          </ScrollViewer>
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="General">
+        <StackPanel Spacing="10" Margin="8,12" MaxWidth="560" HorizontalAlignment="Left">
+          <CheckBox Content="Show the widget when GitWidget starts" IsChecked="{Binding ShowWidgetOnStartup}" />
+          <CheckBox Content="Keep the widget always on top" IsChecked="{Binding AlwaysOnTop}" />
+          <CheckBox Content="Start GitWidget at login" IsChecked="{Binding StartAtLogin}" IsEnabled="{Binding StartAtLoginSupported}" />
+          <CheckBox Content="Show notifications for new changes" IsChecked="{Binding ToastsEnabled}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Minimum priority for notifications" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding Priorities}" SelectedItem="{Binding MinimumToastPriority}" MinWidth="120" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Keep recently closed items for (days)" VerticalAlignment="Center" />
+            <NumericUpDown Value="{Binding RecentlyClosedDays}" Minimum="1" Maximum="90" FormatString="0" Width="120" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Theme" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding Theme}" MinWidth="120" />
+          </StackPanel>
+          <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding CredentialStoreName, StringFormat='Tokens are stored in: {0}. They are never written to settings, logs or caches.'}" />
+          <TextBlock Classes="caption" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" IsVisible="{Binding !CredentialStoreAvailable}"
+                     Text="No secure credential store is available on this system; tokens are kept in memory for this session only." />
+        </StackPanel>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

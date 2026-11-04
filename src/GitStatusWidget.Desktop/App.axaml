@@ -1,20 +1,33 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GitStatusWidget.Desktop.ViewModels"
              x:Class="GitStatusWidget.Desktop.App"
+             x:DataType="vm:TrayViewModel"
              Name="GitWidget"
              RequestedThemeVariant="Default">
   <Application.Styles>
     <FluentTheme />
+    <StyleInclude Source="avares://GitWidget/Themes/Theme.axaml" />
   </Application.Styles>
 
   <TrayIcon.Icons>
     <TrayIcons>
-      <TrayIcon Icon="/Assets/tray.png" ToolTipText="GitWidget">
+      <!-- FallbackValue is required: a null tooltip crashes the macOS tray at startup. -->
+      <TrayIcon Icon="{Binding Icon}" ToolTipText="{Binding ToolTip, FallbackValue=GitWidget}" Command="{Binding ShowWidgetCommand}">
         <TrayIcon.Menu>
           <NativeMenu>
-            <NativeMenuItem Header="GitWidget" IsEnabled="False" />
+            <NativeMenuItem Header="Show widget" Command="{Binding ShowWidgetCommand}" />
+            <NativeMenuItem Header="Open dashboard" Command="{Binding OpenDashboardCommand}" CommandParameter="{x:Null}" />
+            <NativeMenuItem Header="Refresh now" Command="{Binding RefreshCommand}" />
             <NativeMenuItemSeparator />
-            <NativeMenuItem Header="Exit" Click="OnExitClicked" />
+            <NativeMenuItem Header="Repositories">
+              <NativeMenu />
+            </NativeMenuItem>
+            <NativeMenuItem Header="Always on top" ToggleType="CheckBox" IsChecked="{Binding AlwaysOnTop}" Command="{Binding ToggleAlwaysOnTopCommand}" />
+            <NativeMenuItem Header="Start at login" ToggleType="CheckBox" IsChecked="{Binding StartAtLogin}" IsEnabled="{Binding StartAtLoginSupported}" Command="{Binding ToggleStartAtLoginCommand}" />
+            <NativeMenuItem Header="Settings…" Command="{Binding OpenSettingsCommand}" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Exit" Command="{Binding ExitCommand}" />
           </NativeMenu>
         </TrayIcon.Menu>
       </TrayIcon>

@@ -1,0 +1,32 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GitStatusWidget.Desktop.ViewModels"
+        xmlns:c="using:GitStatusWidget.Desktop.Converters"
+        x:Class="GitStatusWidget.Desktop.Views.ToastWindow"
+        x:DataType="vm:ToastViewModel"
+        Title="GitWidget notification"
+        Width="340"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowDecorations="None"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Topmost="True"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        WindowStartupLocation="Manual">
+  <Border x:Name="Card" CornerRadius="10" Padding="12,10" Margin="4"
+          Background="{DynamicResource WidgetBackgroundBrush}" BorderBrush="{Binding Kind, Converter={x:Static c:SemanticBrushConverter.Instance}}" BorderThickness="1,1,1,1"
+          Cursor="Hand">
+    <Grid ColumnDefinitions="Auto,*">
+      <Border Width="26" Height="26" CornerRadius="13" Background="{Binding Kind, Converter={x:Static c:SemanticBrushConverter.Instance}}" VerticalAlignment="Top" Margin="0,2,10,0">
+        <TextBlock Text="{Binding Glyph}" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Border>
+      <StackPanel Grid.Column="1" Spacing="2">
+        <TextBlock Classes="caption" Text="{Binding RepositoryName}" />
+        <TextBlock Text="{Binding Headline}" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding Title}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" Classes="subtle" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

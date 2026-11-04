@@ -1,0 +1,160 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="WidgetBackgroundBrush" Color="#F2FFFFFF" />
+          <SolidColorBrush x:Key="WidgetBorderBrush" Color="#1F000000" />
+          <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="CardBorderBrush" Color="#14000000" />
+          <SolidColorBrush x:Key="PageBackgroundBrush" Color="#FFF5F6F8" />
+          <SolidColorBrush x:Key="SubtleTextBrush" Color="#FF5F6670" />
+          <SolidColorBrush x:Key="DividerBrush" Color="#14000000" />
+          <SolidColorBrush x:Key="BadgeBackgroundBrush" Color="#FFE8EAED" />
+          <SolidColorBrush x:Key="SuccessBrush" Color="#FF1E7E34" />
+          <SolidColorBrush x:Key="FailureBrush" Color="#FFC62828" />
+          <SolidColorBrush x:Key="InfoBrush" Color="#FF1565C0" />
+          <SolidColorBrush x:Key="WarningBrush" Color="#FFB26A00" />
+          <SolidColorBrush x:Key="NeutralBrush" Color="#FF6B7280" />
+          <SolidColorBrush x:Key="ProgressTrackBrush" Color="#FFE3E6EA" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="WidgetBackgroundBrush" Color="#EE1F2328" />
+          <SolidColorBrush x:Key="WidgetBorderBrush" Color="#33FFFFFF" />
+          <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FF262B31" />
+          <SolidColorBrush x:Key="CardBorderBrush" Color="#1FFFFFFF" />
+          <SolidColorBrush x:Key="PageBackgroundBrush" Color="#FF1B1F24" />
+          <SolidColorBrush x:Key="SubtleTextBrush" Color="#FFA3ABB5" />
+          <SolidColorBrush x:Key="DividerBrush" Color="#1FFFFFFF" />
+          <SolidColorBrush x:Key="BadgeBackgroundBrush" Color="#FF373E47" />
+          <SolidColorBrush x:Key="SuccessBrush" Color="#FF4CC26A" />
+          <SolidColorBrush x:Key="FailureBrush" Color="#FFF26D6D" />
+          <SolidColorBrush x:Key="InfoBrush" Color="#FF5AA9F5" />
+          <SolidColorBrush x:Key="WarningBrush" Color="#FFE5A23B" />
+          <SolidColorBrush x:Key="NeutralBrush" Color="#FF9CA3AF" />
+          <SolidColorBrush x:Key="ProgressTrackBrush" Color="#FF39414A" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- Typography -->
+  <Style Selector="TextBlock.subtle">
+    <Setter Property="Foreground" Value="{DynamicResource SubtleTextBrush}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="TextBlock.caption">
+    <Setter Property="Foreground" Value="{DynamicResource SubtleTextBrush}" />
+    <Setter Property="FontSize" Value="11" />
+  </Style>
+  <Style Selector="TextBlock.section">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Margin" Value="0,0,0,8" />
+  </Style>
+  <Style Selector="TextBlock.number">
+    <Setter Property="FontSize" Value="22" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- Provider badge: text only (provider branding for identification, architecture §16.3) -->
+  <Style Selector="Border.badge">
+    <Setter Property="Background" Value="{DynamicResource BadgeBackgroundBrush}" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="4,1" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.badge > TextBlock">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="14" />
+  </Style>
+
+  <!-- Compact icon buttons in the widget header -->
+  <Style Selector="Button.icon">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+
+  <Style Selector="ProgressBar.milestone">
+    <Setter Property="Height" Value="6" />
+    <Setter Property="MinHeight" Value="6" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Background" Value="{DynamicResource ProgressTrackBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+  </Style>
+  <Style Selector="ProgressBar.milestone.overdue">
+    <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+  </Style>
+
+  <!-- One-shot animations (architecture §16.4). Classes are added and removed by code-behind only for new events. -->
+  <Style Selector="Border.anim-closed">
+    <Style.Animations>
+      <Animation Duration="0:0:0.9" IterationCount="1" FillMode="None">
+        <KeyFrame Cue="0%"><Setter Property="Background" Value="Transparent" /></KeyFrame>
+        <KeyFrame Cue="30%"><Setter Property="Background" Value="#552E7D32" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="Background" Value="Transparent" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="TextBlock.anim-check">
+    <Style.Animations>
+      <Animation Duration="0:0:0.45" Easing="BackEaseOut" IterationCount="1" FillMode="Forward">
+        <KeyFrame Cue="0%">
+          <Setter Property="ScaleTransform.ScaleX" Value="0.2" />
+          <Setter Property="ScaleTransform.ScaleY" Value="0.2" />
+          <Setter Property="Opacity" Value="0" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="ScaleTransform.ScaleX" Value="1" />
+          <Setter Property="ScaleTransform.ScaleY" Value="1" />
+          <Setter Property="Opacity" Value="1" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Border.anim-opened">
+    <Style.Animations>
+      <Animation Duration="0:0:0.9" IterationCount="1" FillMode="None">
+        <KeyFrame Cue="0%"><Setter Property="Background" Value="Transparent" /></KeyFrame>
+        <KeyFrame Cue="30%"><Setter Property="Background" Value="#551565C0" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="Background" Value="Transparent" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Border.anim-failed">
+    <Style.Animations>
+      <!-- One short red pulse, never a continuous flash. -->
+      <Animation Duration="0:0:0.6" IterationCount="1" FillMode="None">
+        <KeyFrame Cue="0%"><Setter Property="Background" Value="Transparent" /></KeyFrame>
+        <KeyFrame Cue="40%"><Setter Property="Background" Value="#66E53935" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="Background" Value="Transparent" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Border.toast-enter">
+    <Style.Animations>
+      <Animation Duration="0:0:0.3" Easing="CubicEaseOut" IterationCount="1" FillMode="Forward">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="TranslateTransform.X" Value="24" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="TranslateTransform.X" Value="0" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+</Styles>

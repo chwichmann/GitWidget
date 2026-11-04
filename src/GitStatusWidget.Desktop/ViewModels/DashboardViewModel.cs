@@ -1,0 +1,274 @@
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.Globalization;
+using System.Text;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using GitStatusWidget.Application.Projection;
+using GitStatusWidget.Application.Synchronization;
+using GitStatusWidget.Desktop.Services;
+using GitStatusWidget.Domain.Health;
+using GitStatusWidget.Domain.Repositories;
+
+namespace GitStatusWidget.Desktop.ViewModels;
+
+/// <summary>Navigation entry of the dashboard's repository selector.</summary>
+public sealed partial class RepositoryNavItem : ObservableObject
+{
+    public RepositoryNavItem(Guid id) => Id = id;
+
+    public Guid Id { get; }
+
+    [ObservableProperty]
+    public partial string Name { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string Badge { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string Status { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool HasProblem { get; set; }
+}
+
+/// <summary>Expanded dashboard (architecture §16.3). Uses the same projections as the widget.</summary>
+public sealed partial class DashboardViewModel : ObservableObject, IDisposable
+{
+    private readonly IRepositoryStatusHub _hub;
+    private readonly DashboardProjector _projector;
+    private readonly ISynchronizationController _controller;
+    private readonly IUiDispatcher _ui;
+    private readonly IAppNavigator _navigator;
+    private readonly ActivityFeed _feed;
+    private readonly TimeProvider _time;
+    private string? _signature;
+
+    public DashboardViewModel(
+        IRepositoryStatusHub hub,
+        DashboardProjector projector,
+        ISynchronizationController controller,
+        IUiDispatcher ui,
+        IAppNavigator navigator,
+        ActivityFeed feed,
+        TimeProvider time)
+    {
+        _hub = hub;
+        _projector = projector;
+        _controller = controller;
+        _ui = ui;
+        _navigator = navigator;
+        _feed = feed;
+        _time = time;
+        _hub.StateChanged += OnStateChanged;
+        _hub.RepositoryRemoved += OnRemoved;
+        _feed.Items.CollectionChanged += OnFeedChanged;
+        foreach (var state in _hub.States)
+        {
+            UpsertNav(state);
+        }
+
+        SelectedRepository = Repositories.FirstOrDefault();
+    }
+
+    public ObservableCollection<RepositoryNavItem> Repositories { get; } = [];
+
+    public ObservableCollection<ActivityProjection> Activity { get; } = [];
+
+    [ObservableProperty]
+    public partial RepositoryNavItem? SelectedRepository { get; set; }
+
+    [ObservableProperty]
+    public partial DashboardProjection? Projection { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasRepositories { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasChangeRequests { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasBuilds { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasActivity { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasProblem { get; set; }
+
+    [ObservableProperty]
+    public partial string FreshnessText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string ChangeRequestTitle { get; set; } = "Open pull requests";
+
+    [ObservableProperty]
+    public partial string BuildTitle { get; set; } = "Recent workflow runs";
+
+    [ObservableProperty]
+    public partial string ProviderName { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsRefreshing { get; set; }
+
+    public void Select(Guid? repositoryId)
+    {
+        if (repositoryId is { } id && Repositories.FirstOrDefault(r => r.Id == id) is { } item)
+        {
+            SelectedRepository = item;
+        }
+        else
+        {
+            SelectedRepository ??= Repositories.FirstOrDefault();
+        }
+    }
+
+    [RelayCommand]
+    private void Refresh() => _controller.RequestRefresh(SelectedRepository?.Id);
+
+    [RelayCommand]
+    private void OpenUrl(Uri? url) => _navigator.OpenInBrowser(url);
+
+    [RelayCommand]
+    private void OpenSettings() => _navigator.ShowSettings(SelectedRepository?.Id, addNew: SelectedRepository is null);
+
+    public void Dispose()
+    {
+        _hub.StateChanged -= OnStateChanged;
+        _hub.RepositoryRemoved -= OnRemoved;
+        _feed.Items.CollectionChanged -= OnFeedChanged;
+    }
+
+    partial void OnSelectedRepositoryChanged(RepositoryNavItem? value)
+    {
+        _signature = null;
+        Rebuild();
+        RebuildActivity();
+    }
+
+    private void OnStateChanged(object? sender, RepositoryRuntimeState state) => _ui.Post(() =>
+    {
+        UpsertNav(state);
+        SelectedRepository ??= Repositories.FirstOrDefault();
+        if (SelectedRepository?.Id == state.Id)
+        {
+            Rebuild();
+        }
+    });
+
+    private void OnRemoved(object? sender, Guid id) => _ui.Post(() =>
+    {
+        var item = Repositories.FirstOrDefault(r => r.Id == id);
+        if (item is not null)
+        {
+            Repositories.Remove(item);
+        }
+
+        HasRepositories = Repositories.Count > 0;
+        if (SelectedRepository?.Id == id)
+        {
+            SelectedRepository = Repositories.FirstOrDefault();
+        }
+    });
+
+    private void OnFeedChanged(object? sender, NotifyCollectionChangedEventArgs e) => RebuildActivity();
+
+    private void UpsertNav(RepositoryRuntimeState state)
+    {
+        var item = Repositories.FirstOrDefault(r => r.Id == state.Id);
+        if (item is null)
+        {
+            item = new RepositoryNavItem(state.Id);
+            Repositories.Add(item);
+        }
+
+        var health = _projector.ProjectRow(state).Health;
+        item.Name = state.Configuration.EffectiveDisplayName;
+        item.Badge = state.Configuration.Provider == RepositoryProviderKind.GitLab ? "GL" : "GH";
+        item.Status = health.Summary;
+        item.HasProblem = health.State is not (RepositoryHealthState.Healthy or RepositoryHealthState.Refreshing);
+        HasRepositories = Repositories.Count > 0;
+    }
+
+    private void Rebuild()
+    {
+        var state = SelectedRepository is null ? null : _hub.Find(SelectedRepository.Id);
+        if (state is null)
+        {
+            Projection = null;
+            HasChangeRequests = HasBuilds = HasProblem = false;
+            return;
+        }
+
+        var projection = _projector.ProjectDashboard(state);
+        IsRefreshing = projection.Health.IsRefreshing;
+        HasProblem = projection.Health.State is not (RepositoryHealthState.Healthy or RepositoryHealthState.Refreshing);
+        FreshnessText = projection.Health.LastSuccessAt is { } success
+            ? $"Updated {Format.Age(success, _time.GetUtcNow())} ({success.ToLocalTime().ToString("t", CultureInfo.CurrentCulture)})"
+            : "Not updated yet";
+
+        var signature = Signature(projection);
+        if (signature == _signature)
+        {
+            // Same content: keep list instances (and scroll positions); only health/freshness changed.
+            if (Projection is not null)
+            {
+                Projection = Projection with { Health = projection.Health };
+            }
+
+            return;
+        }
+
+        _signature = signature;
+        Projection = projection;
+        HasChangeRequests = projection.OpenChangeRequests.Count > 0;
+        HasBuilds = projection.RecentBuilds.Count > 0;
+        var gitlab = projection.Header.Provider == RepositoryProviderKind.GitLab;
+        ProviderName = gitlab ? "GitLab" : "GitHub";
+        ChangeRequestTitle = gitlab ? "Open merge requests" : "Open pull requests";
+        BuildTitle = gitlab ? "Recent pipelines" : "Recent workflow runs";
+    }
+
+    private void RebuildActivity()
+    {
+        Activity.Clear();
+        foreach (var item in _feed.Items.Where(i => SelectedRepository is null || i.RepositoryId == SelectedRepository.Id).Take(50))
+        {
+            Activity.Add(item);
+        }
+
+        HasActivity = Activity.Count > 0;
+    }
+
+    private static string Signature(DashboardProjection p)
+    {
+        var builder = new StringBuilder();
+        builder.Append(p.HasData).Append('|').Append(p.Summary).Append('|').Append(p.CurrentMilestone).Append('|');
+        foreach (var m in p.Milestones)
+        {
+            builder.Append(m).Append(';');
+        }
+
+        foreach (var l in p.Labels)
+        {
+            builder.Append(l).Append(';');
+        }
+
+        foreach (var i in p.RecentlyChanged.Concat(p.RecentlyClosed))
+        {
+            builder.Append(i.Number).Append(':').Append(i.UpdatedAt.UtcTicks).Append(i.State).Append(';');
+        }
+
+        foreach (var c in p.OpenChangeRequests)
+        {
+            builder.Append(c).Append(';');
+        }
+
+        foreach (var b in p.RecentBuilds)
+        {
+            builder.Append(b).Append(';');
+        }
+
+        return builder.ToString();
+    }
+}

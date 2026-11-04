@@ -1,0 +1,234 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GitStatusWidget.Desktop.ViewModels"
+        xmlns:p="using:GitStatusWidget.Application.Projection"
+        xmlns:c="using:GitStatusWidget.Desktop.Converters"
+        x:Class="GitStatusWidget.Desktop.Views.DashboardWindow"
+        x:DataType="vm:DashboardViewModel"
+        Title="GitWidget – Dashboard"
+        Width="1000" Height="650" MinWidth="720" MinHeight="420"
+        Icon="/Assets/gitwidget.png"
+        Background="{DynamicResource PageBackgroundBrush}"
+        WindowStartupLocation="CenterScreen">
+  <Grid ColumnDefinitions="230,*">
+    <!-- Repository selector -->
+    <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0" Background="{DynamicResource CardBackgroundBrush}">
+      <DockPanel Margin="8">
+        <Button DockPanel.Dock="Bottom" HorizontalAlignment="Stretch" Content="Settings…" Command="{Binding OpenSettingsCommand}" Margin="0,8,0,0" />
+        <TextBlock DockPanel.Dock="Top" Classes="section" Text="Repositories" Margin="6,4,0,8" />
+        <ListBox ItemsSource="{Binding Repositories}" SelectedItem="{Binding SelectedRepository}" Background="Transparent">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:RepositoryNavItem">
+              <StackPanel Spacing="2">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <Border Classes="badge"><TextBlock Text="{Binding Badge}" /></Border>
+                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="160" />
+                </StackPanel>
+                <TextBlock Classes="caption" Text="{Binding Status}" TextTrimming="CharacterEllipsis"
+                           Foreground="{Binding HasProblem, Converter={x:Static c:SemanticBrushConverter.Instance}}" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <!-- Content -->
+    <Panel Grid.Column="1">
+      <StackPanel IsVisible="{Binding !HasRepositories}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10">
+        <TextBlock Text="No repositories configured." FontSize="16" />
+        <Button HorizontalAlignment="Center" Content="Add a repository…" Command="{Binding OpenSettingsCommand}" />
+      </StackPanel>
+
+      <ScrollViewer IsVisible="{Binding HasRepositories}">
+        <StackPanel Margin="20" Spacing="16">
+          <!-- Header -->
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="2">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{Binding Projection.Header.DisplayName, FallbackValue=''}" FontSize="22" FontWeight="SemiBold" />
+                <Border Classes="badge"><TextBlock Text="{Binding ProviderName}" /></Border>
+              </StackPanel>
+              <TextBlock Classes="subtle">
+                <Run Text="{Binding Projection.Header.Host, FallbackValue=''}" /><Run Text=" · " /><Run Text="{Binding Projection.Header.FullPath, FallbackValue=''}" /><Run Text=" · " /><Run Text="{Binding FreshnessText}" />
+              </TextBlock>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <ProgressBar IsIndeterminate="True" Width="60" IsVisible="{Binding IsRefreshing}" VerticalAlignment="Center" />
+              <Button Content="Open in browser" Command="{Binding OpenUrlCommand}" CommandParameter="{Binding Projection.Header.WebUrl, FallbackValue={x:Null}}" />
+              <Button Content="Refresh" Command="{Binding RefreshCommand}" />
+            </StackPanel>
+          </Grid>
+
+          <!-- Health banner -->
+          <Border Classes="card" IsVisible="{Binding HasProblem}" BorderBrush="{DynamicResource WarningBrush}">
+            <StackPanel Spacing="2">
+              <TextBlock FontWeight="SemiBold">
+                <Run Text="{Binding Projection.Health.State, Converter={x:Static c:StateGlyphConverter.Instance}, FallbackValue=''}" />
+                <Run Text=" " />
+                <Run Text="{Binding Projection.Health.Summary, FallbackValue=''}" />
+              </TextBlock>
+              <TextBlock Classes="subtle" Text="{Binding Projection.Health.Detail, FallbackValue=''}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <!-- Summary cards -->
+          <UniformGrid Columns="6" IsVisible="{Binding Projection.HasData, FallbackValue=False}">
+            <Border Classes="card" Margin="0,0,8,0">
+              <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.OpenIssues, FallbackValue=0}" Foreground="{DynamicResource InfoBrush}" /><TextBlock Classes="subtle" Text="open issues" /></StackPanel>
+            </Border>
+            <Border Classes="card" Margin="0,0,8,0">
+              <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.ClosedIssues, FallbackValue=0}" Foreground="{DynamicResource SuccessBrush}" /><TextBlock Classes="subtle" Text="closed issues" /></StackPanel>
+            </Border>
+            <Border Classes="card" Margin="0,0,8,0">
+              <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.ClosedToday, FallbackValue=0}" /><TextBlock Classes="subtle" Text="closed today" /></StackPanel>
+            </Border>
+            <Border Classes="card" Margin="0,0,8,0">
+              <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.OpenedToday, FallbackValue=0}" /><TextBlock Classes="subtle" Text="opened today" /></StackPanel>
+            </Border>
+            <Border Classes="card" Margin="0,0,8,0">
+              <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.OpenWithoutMilestone, FallbackValue=0}" /><TextBlock Classes="subtle" Text="no milestone" /></StackPanel>
+            </Border>
+            <Border Classes="card">
+              <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.OpenWithoutAssignee, FallbackValue=0}" /><TextBlock Classes="subtle" Text="unassigned" /></StackPanel>
+            </Border>
+          </UniformGrid>
+
+          <Grid ColumnDefinitions="*,16,*" IsVisible="{Binding Projection.HasData, FallbackValue=False}">
+            <!-- Milestones -->
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="section" Text="Issues by milestone" />
+                <TextBlock Classes="subtle" Text="No milestones." IsVisible="{Binding !Projection.Milestones.Count, FallbackValue=True}" />
+                <ItemsControl ItemsSource="{Binding Projection.Milestones, FallbackValue={x:Null}}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="p:MilestoneProgressProjection">
+                      <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,0,0,10">
+                        <TextBlock TextTrimming="CharacterEllipsis">
+                          <Run Text="{Binding Title}" FontWeight="SemiBold" />
+                          <Run Text="{Binding DueDate, Converter={x:Static c:LocalTimeConverter.Instance}, StringFormat=' · due {0}'}" />
+                        </TextBlock>
+                        <TextBlock Grid.Column="1" Classes="subtle" Margin="8,0,0,0">
+                          <Run Text="{Binding OpenIssues}" /><Run Text=" open · " /><Run Text="{Binding ClosedIssues}" /><Run Text=" closed" />
+                        </TextBlock>
+                        <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Classes="milestone" Classes.overdue="{Binding IsOverdue}"
+                                     Minimum="0" Maximum="1" Value="{Binding Completion}" Margin="0,4,0,0"
+                                     ToolTip.Tip="{Binding Completion, StringFormat='{}{0:P0} complete'}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <!-- Labels -->
+            <Border Grid.Column="2" Classes="card">
+              <StackPanel>
+                <TextBlock Classes="section" Text="Open issues by label" />
+                <TextBlock Classes="caption" Text="Issues with several labels count for each label." Margin="0,-6,0,8" />
+                <ItemsControl ItemsSource="{Binding Projection.Labels, FallbackValue={x:Null}}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="p:LabelCountProjection">
+                      <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,6">
+                        <Ellipse Width="10" Height="10" Fill="{Binding Color, Converter={x:Static c:HexBrushConverter.Instance}}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="{Binding IsHighlighted, Converter={x:Static c:BoolToWeightConverter.Instance}}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Text="{Binding OpenIssues}" FontWeight="SemiBold" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <Grid ColumnDefinitions="*,16,*" IsVisible="{Binding Projection.HasData, FallbackValue=False}">
+            <!-- Recently closed -->
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="section" Text="Recently closed issues" />
+                <TextBlock Classes="subtle" Text="No recently closed issues." IsVisible="{Binding !Projection.RecentlyClosed.Count, FallbackValue=True}" />
+                <ItemsControl ItemsSource="{Binding Projection.RecentlyClosed, FallbackValue={x:Null}}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="p:IssueListItemProjection">
+                      <Button Classes="icon" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="0,3"
+                              Command="{Binding $parent[Window].((vm:DashboardViewModel)DataContext).OpenUrlCommand}" CommandParameter="{Binding WebUrl}">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                          <TextBlock Text="✓" Foreground="{DynamicResource SuccessBrush}" Margin="0,0,6,0" />
+                          <TextBlock Grid.Column="1" TextTrimming="CharacterEllipsis"><Run Text="{Binding Number, StringFormat='#{0} '}" Foreground="{DynamicResource SubtleTextBrush}" /><Run Text="{Binding Title}" /></TextBlock>
+                          <TextBlock Grid.Column="2" Classes="caption" Margin="8,0,0,0" Text="{Binding ClosedAt, Converter={x:Static c:LocalTimeConverter.Instance}}" />
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <!-- Activity -->
+            <Border Grid.Column="2" Classes="card">
+              <StackPanel>
+                <TextBlock Classes="section" Text="Recent activity" />
+                <TextBlock Classes="subtle" Text="Changes detected while GitWidget runs appear here." IsVisible="{Binding !HasActivity}" TextWrapping="Wrap" />
+                <ItemsControl ItemsSource="{Binding Activity}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="p:ActivityProjection">
+                      <Button Classes="icon" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="0,3"
+                              Command="{Binding $parent[Window].((vm:DashboardViewModel)DataContext).OpenUrlCommand}" CommandParameter="{Binding Event.WebUrl}">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBlock TextTrimming="CharacterEllipsis"><Run Text="{Binding Headline}" FontWeight="SemiBold" /><Run Text=" · " /><Run Text="{Binding Title}" /></TextBlock>
+                          <TextBlock Grid.Column="1" Classes="caption" Margin="8,0,0,0" Text="{Binding Event.OccurredAt, Converter={x:Static c:LocalTimeConverter.Instance}}" />
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <!-- Builds (hidden without CI data) -->
+          <Border Classes="card" IsVisible="{Binding HasBuilds}">
+            <StackPanel>
+              <TextBlock Classes="section" Text="{Binding BuildTitle}" />
+              <ItemsControl ItemsSource="{Binding Projection.RecentBuilds, FallbackValue={x:Null}}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="p:BuildProjection">
+                    <Button Classes="icon" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="0,3"
+                            Command="{Binding $parent[Window].((vm:DashboardViewModel)DataContext).OpenUrlCommand}" CommandParameter="{Binding WebUrl}">
+                      <Grid ColumnDefinitions="24,*,Auto,Auto">
+                        <TextBlock Text="{Binding State, Converter={x:Static c:StateGlyphConverter.Instance}}" Foreground="{Binding State, Converter={x:Static c:SemanticBrushConverter.Instance}}" FontWeight="Bold" />
+                        <TextBlock Grid.Column="1" TextTrimming="CharacterEllipsis"><Run Text="{Binding Name}" /><Run Text=" · " Foreground="{DynamicResource SubtleTextBrush}" /><Run Text="{Binding RefName}" Foreground="{DynamicResource SubtleTextBrush}" /></TextBlock>
+                        <TextBlock Grid.Column="2" Classes="caption" Text="{Binding ShortSha}" Margin="8,0" FontFamily="Menlo, Consolas, monospace" />
+                        <TextBlock Grid.Column="3" Classes="caption" Text="{Binding CreatedAt, Converter={x:Static c:LocalTimeConverter.Instance}}" />
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <!-- Change requests (hidden when there are none) -->
+          <Border Classes="card" IsVisible="{Binding HasChangeRequests}">
+            <StackPanel>
+              <TextBlock Classes="section" Text="{Binding ChangeRequestTitle}" />
+              <ItemsControl ItemsSource="{Binding Projection.OpenChangeRequests, FallbackValue={x:Null}}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="p:ChangeRequestProjection">
+                    <Button Classes="icon" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="0,3"
+                            Command="{Binding $parent[Window].((vm:DashboardViewModel)DataContext).OpenUrlCommand}" CommandParameter="{Binding WebUrl}">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock TextTrimming="CharacterEllipsis"><Run Text="{Binding Number, StringFormat='#{0} '}" Foreground="{DynamicResource SubtleTextBrush}" /><Run Text="{Binding Title}" /><Run Text="{Binding IsDraft, Converter={x:Static c:DraftConverter.Instance}}" Foreground="{DynamicResource SubtleTextBrush}" /></TextBlock>
+                        <TextBlock Grid.Column="1" Classes="caption" Margin="8,0,0,0" Text="{Binding UpdatedAt, Converter={x:Static c:LocalTimeConverter.Instance}}" />
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Panel>
+  </Grid>
+</Window>

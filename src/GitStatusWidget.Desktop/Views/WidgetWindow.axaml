@@ -1,0 +1,105 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GitStatusWidget.Desktop.ViewModels"
+        xmlns:c="using:GitStatusWidget.Desktop.Converters"
+        x:Class="GitStatusWidget.Desktop.Views.WidgetWindow"
+        x:DataType="vm:WidgetViewModel"
+        Title="GitWidget"
+        Width="360"
+        SizeToContent="Height"
+        MaxHeight="640"
+        CanResize="False"
+        WindowDecorations="None"
+        ShowInTaskbar="False"
+        Topmost="{Binding AlwaysOnTop}"
+        TransparencyLevelHint="AcrylicBlur, Blur, Transparent"
+        Background="Transparent"
+        WindowStartupLocation="Manual">
+  <Border CornerRadius="12"
+          Background="{DynamicResource WidgetBackgroundBrush}"
+          BorderBrush="{DynamicResource WidgetBorderBrush}"
+          BorderThickness="1"
+          ClipToBounds="True">
+    <DockPanel>
+      <!-- Header: drag area -->
+      <Grid x:Name="DragArea" DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="12,8,6,4" Background="Transparent">
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Image Source="/Assets/tray.png" Width="16" Height="16" />
+          <TextBlock Text="GitWidget" FontWeight="SemiBold" VerticalAlignment="Center" />
+          <TextBlock Text="↻" IsVisible="{Binding IsAnyRefreshing}" Classes="subtle" VerticalAlignment="Center"
+                     ToolTip.Tip="Refreshing…" />
+        </StackPanel>
+        <Button Grid.Column="1" Classes="icon" Content="⟳" Command="{Binding RefreshCommand}" ToolTip.Tip="Refresh now" />
+        <Button Grid.Column="2" Classes="icon" Content="⤢" Command="{Binding OpenDashboardCommand}" CommandParameter="{x:Null}" ToolTip.Tip="Open dashboard" />
+        <Button Grid.Column="3" Classes="icon" Content="⚙" Command="{Binding OpenSettingsCommand}" ToolTip.Tip="Settings" />
+        <Button Grid.Column="4" Classes="icon" Content="✕" Command="{Binding HideCommand}" ToolTip.Tip="Hide to tray" />
+      </Grid>
+
+      <!-- Footer -->
+      <TextBlock DockPanel.Dock="Bottom" Classes="caption" Margin="12,4,12,10" Text="{Binding FooterText}" />
+
+      <Panel>
+        <!-- Empty state -->
+        <StackPanel IsVisible="{Binding IsEmpty}" Margin="16,12" Spacing="8">
+          <TextBlock Text="No repositories yet." />
+          <Button Content="Add a repository…" Command="{Binding OpenSettingsCommand}" />
+        </StackPanel>
+
+        <ScrollViewer IsVisible="{Binding !IsEmpty}" VerticalScrollBarVisibility="Auto">
+          <ItemsControl x:Name="RowsList" ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:RepositoryRowViewModel">
+                <Border x:Name="RowRoot" Margin="6,2" Padding="8,6" CornerRadius="8" Background="Transparent"
+                        Cursor="Hand" ToolTip.Tip="{Binding ToolTipText}">
+                  <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+                    <!-- Line 1: badge, name, health -->
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Border Classes="badge" ToolTip.Tip="{Binding ProviderName}">
+                        <TextBlock Text="{Binding ProviderBadge}" />
+                      </Border>
+                      <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="200" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                      <Border x:Name="BuildPulse" CornerRadius="4" Padding="3,0" IsVisible="{Binding HasBuild}" ToolTip.Tip="{Binding BuildText}">
+                        <TextBlock Text="{Binding BuildState, Converter={x:Static c:StateGlyphConverter.Instance}}"
+                                   Foreground="{Binding BuildState, Converter={x:Static c:SemanticBrushConverter.Instance}}" FontWeight="Bold" />
+                      </Border>
+                      <TextBlock Text="{Binding Health, Converter={x:Static c:StateGlyphConverter.Instance}}"
+                                 Foreground="{Binding Health, Converter={x:Static c:SemanticBrushConverter.Instance}}"
+                                 ToolTip.Tip="{Binding HealthText}" />
+                    </StackPanel>
+
+                    <!-- Line 2: counts -->
+                    <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="10" Margin="0,4,0,0" IsVisible="{Binding HasData}">
+                      <Border x:Name="OpenPulse" CornerRadius="4" Padding="3,0">
+                        <TextBlock><Run Text="{Binding OpenIssues}" FontWeight="SemiBold" /><Run Text=" open" /></TextBlock>
+                      </Border>
+                      <Border x:Name="ClosedPulse" CornerRadius="4" Padding="3,0">
+                        <StackPanel Orientation="Horizontal" Spacing="3">
+                          <TextBlock x:Name="ClosedCheck" Text="✓" Foreground="{DynamicResource SuccessBrush}" IsVisible="False" />
+                          <TextBlock><Run Text="{Binding ClosedIssues}" FontWeight="SemiBold" /><Run Text=" closed" /></TextBlock>
+                        </StackPanel>
+                      </Border>
+                      <TextBlock Classes="subtle" VerticalAlignment="Center" IsVisible="{Binding ClosedToday}">
+                        <Run Text="{Binding ClosedToday}" /><Run Text=" today" />
+                      </TextBlock>
+                    </StackPanel>
+                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="subtle" Margin="0,4,0,0" IsVisible="{Binding !HasData}" Text="{Binding HealthText}" />
+
+                    <!-- Line 3: milestone -->
+                    <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,4,0,0" IsVisible="{Binding HasMilestone}">
+                      <TextBlock Classes="caption" Text="{Binding MilestoneTitle}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Classes="caption" Text="{Binding MilestoneText}" Margin="8,0,0,0" />
+                      <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Classes="milestone" Classes.overdue="{Binding MilestoneOverdue}"
+                                   Minimum="0" Maximum="100" Value="{Binding MilestonePercent}" Margin="0,3,0,0" />
+                    </Grid>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Panel>
+    </DockPanel>
+  </Border>
+</Window>
