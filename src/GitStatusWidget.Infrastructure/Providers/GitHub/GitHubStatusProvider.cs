@@ -449,6 +449,12 @@ internal sealed partial class GitHubStatusProvider : IRepositoryStatusProvider
             cache.Record(key, null, 1);
             return (SectionUpdate<BuildSnapshot>.Replace([]), false);
         }
+        catch (ProviderFailureException ex) when (ex.Kind == ProviderFailureKind.AuthorizationFailed)
+        {
+            // A token without "Actions: Read" must not break issue monitoring: hide the builds section instead.
+            cache.Record(key, null, 1);
+            return (SectionUpdate<BuildSnapshot>.Replace([]), false);
+        }
 
         if (response.IsNotModified)
         {

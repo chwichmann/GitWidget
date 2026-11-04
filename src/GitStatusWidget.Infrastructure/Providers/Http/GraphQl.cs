@@ -38,9 +38,13 @@ internal static class GraphQl
         if (envelope.Errors is { Count: > 0 } errors)
         {
             var first = errors[0];
-            var kind = string.Equals(first.Type, "NOT_FOUND", StringComparison.OrdinalIgnoreCase)
-                ? ProviderFailureKind.NotFound
-                : ProviderFailureKind.Malformed;
+            var kind = first.Type?.ToUpperInvariant() switch
+            {
+                "NOT_FOUND" => ProviderFailureKind.NotFound,
+                "RATE_LIMITED" => ProviderFailureKind.RateLimited,
+                "FORBIDDEN" or "INSUFFICIENT_SCOPES" => ProviderFailureKind.AuthorizationFailed,
+                _ => ProviderFailureKind.Malformed,
+            };
             throw new GraphQlErrorException(kind, $"GraphQL error: {Truncate(first.Message)}");
         }
 

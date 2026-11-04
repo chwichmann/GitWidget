@@ -489,6 +489,19 @@ public sealed class GitHubFetchTests : IDisposable
     }
 
     [Fact]
+    public async Task Token_without_actions_permission_hides_builds_instead_of_failing()
+    {
+        _h.Api.StandardRepository();
+        _h.Api.Get($"{GitHubFakeServer.RepoPath}/actions/runs", new { message = "Resource not accessible by personal access token" }, status: 403, priority: 1);
+
+        var success = await _h.FetchSuccessAsync();
+
+        success.Fetch.Builds.Should().BeOfType<SectionUpdate<BuildSnapshot>.ReplaceSection>().Which.Items.Should().BeEmpty();
+        success.Fetch.Features.Builds.Should().BeFalse();
+        SnapshotAssembler.Assemble(null, success.Fetch, Now, GitHubFixtures.ClosedWindowStart).Should().BeOfType<AssemblyResult.Accepted>();
+    }
+
+    [Fact]
     public async Task Builds_only_fetch_with_404_confirms_the_repository_exists()
     {
         var (previous, state) = await BaselineAsync();
