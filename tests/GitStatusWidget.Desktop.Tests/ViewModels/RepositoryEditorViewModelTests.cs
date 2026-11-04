@@ -11,11 +11,7 @@ public sealed class RepositoryEditorViewModelTests
     private static RepositoryEditorViewModel NewEditor(string path = "octo/widget", string token = "ghp_token") =>
         new(null, hasStoredToken: false) { RepositoryPath = path, NewToken = token };
 
-    /// <summary>
-    /// Every other test in this class (and most SettingsViewModel tests) is skipped while this bug exists:
-    /// <see cref="EditorFactAttribute"/> turns them on automatically once the constructor stops throwing.
-    /// </summary>
-    [Theory(Skip = KnownBugs.EditorConstructor)]
+    [Theory]
     [InlineData(null)]
     [InlineData(RepositoryProviderKind.GitHub)]
     [InlineData(RepositoryProviderKind.GitLab)]
@@ -28,7 +24,7 @@ public sealed class RepositoryEditorViewModelTests
         create.Should().NotThrow();
     }
 
-    [EditorFact]
+    [Fact]
     public void New_editor_has_github_defaults()
     {
         var editor = new RepositoryEditorViewModel(null, hasStoredToken: false);
@@ -45,7 +41,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.TokenStatus.Should().Be("No token stored yet.");
     }
 
-    [EditorFact]
+    [Fact]
     public void Existing_configuration_is_loaded_into_the_form()
     {
         var configuration = Data.Config(provider: RepositoryProviderKind.GitLab, owner: "group/sub", name: "project", displayName: "My project") with
@@ -73,7 +69,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.TokenStatus.Should().Contain("stored securely");
     }
 
-    [EditorFact]
+    [Fact]
     public void Missing_github_path_is_reported()
     {
         var editor = NewEditor(path: "");
@@ -82,7 +78,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.ValidationMessage.Should().Be("Enter the repository as owner/name.");
     }
 
-    [EditorFact]
+    [Fact]
     public void Missing_gitlab_path_is_reported()
     {
         var editor = NewEditor(path: "project");
@@ -92,7 +88,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.ValidationMessage.Should().Be("Enter the project path, e.g. group/subgroup/project.");
     }
 
-    [EditorFact]
+    [Fact]
     public void GitHub_owner_with_slash_is_rejected()
     {
         var editor = NewEditor(path: "octo/sub/widget");
@@ -101,7 +97,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.ValidationMessage.Should().Be("GitHub repositories have the form owner/name.");
     }
 
-    [EditorFact]
+    [Fact]
     public void GitLab_subgroups_are_accepted()
     {
         var editor = NewEditor(path: "group/sub/project");
@@ -115,7 +111,7 @@ public sealed class RepositoryEditorViewModelTests
         configuration.ServerUri.Should().Be(new Uri("https://gitlab.com/"));
     }
 
-    [EditorTheory]
+    [Theory]
     [InlineData("")]
     [InlineData("gitlab.example.com")]
     [InlineData("ftp://gitlab.example.com/")]
@@ -128,7 +124,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.ValidationMessage.Should().StartWith("Enter the server address");
     }
 
-    [EditorFact]
+    [Fact]
     public void Http_requires_allow_insecure_http()
     {
         var editor = NewEditor(path: "group/project");
@@ -147,7 +143,7 @@ public sealed class RepositoryEditorViewModelTests
         configuration.AllowInsecureHttp.Should().BeTrue();
     }
 
-    [EditorFact]
+    [Fact]
     public void New_repository_requires_a_token()
     {
         var editor = NewEditor(token: "   ");
@@ -156,7 +152,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.ValidationMessage.Should().Be("Enter an access token.");
     }
 
-    [EditorFact]
+    [Fact]
     public void Existing_repository_with_stored_token_needs_no_new_token()
     {
         var editor = new RepositoryEditorViewModel(Data.Config(), hasStoredToken: true);
@@ -165,7 +161,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.ValidationMessage.Should().BeNull();
     }
 
-    [EditorTheory]
+    [Theory]
     [InlineData(14, 30)]
     [InlineData(30, 14)]
     [InlineData(0, 0)]
@@ -179,7 +175,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.ValidationMessage.Should().StartWith("Polling intervals must be at least 15");
     }
 
-    [EditorFact]
+    [Fact]
     public void Validation_message_is_cleared_after_a_successful_build()
     {
         var editor = NewEditor(path: "");
@@ -191,7 +187,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.ValidationMessage.Should().BeNull();
     }
 
-    [EditorFact]
+    [Fact]
     public void TryBuild_of_a_new_repository_uses_defaults_and_form_values()
     {
         var editor = NewEditor(path: " octo/widget ");
@@ -225,7 +221,7 @@ public sealed class RepositoryEditorViewModelTests
         configuration.SelectedMilestoneId.Should().BeNull();
     }
 
-    [EditorFact]
+    [Fact]
     public void Server_url_is_normalized_with_trailing_slash_and_relative_root()
     {
         var editor = NewEditor(path: "team/app");
@@ -237,7 +233,7 @@ public sealed class RepositoryEditorViewModelTests
         configuration!.ServerUri.Should().Be(new Uri("https://code.example.com/gitlab/"));
     }
 
-    [EditorFact]
+    [Fact]
     public void TryBuild_of_an_existing_repository_keeps_credential_reference_identity_and_reconciliation()
     {
         var original = Data.Config() with
@@ -260,7 +256,7 @@ public sealed class RepositoryEditorViewModelTests
         configuration.SortOrder.Should().Be(1);
     }
 
-    [EditorFact]
+    [Fact]
     public void Changing_the_milestone_selection_is_saved()
     {
         var editor = new RepositoryEditorViewModel(Data.Config() with { SelectedMilestoneId = "M1" }, hasStoredToken: true);
@@ -271,7 +267,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.TryBuild(0)!.SelectedMilestoneId.Should().Be("M2");
     }
 
-    [EditorFact]
+    [Fact]
     public void Milestone_choices_always_start_with_automatic()
     {
         var editor = new RepositoryEditorViewModel(Data.Config(), hasStoredToken: true);
@@ -284,7 +280,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.MilestoneChoices[1].ToString().Should().Be("Milestone 1");
     }
 
-    [EditorTheory]
+    [Theory]
     [InlineData("octo/other", RepositoryProviderKind.GitHub, "https://github.com/")]
     [InlineData("octo/widget", RepositoryProviderKind.GitHub, "https://github.example.com/")]
     [InlineData("octo/widget", RepositoryProviderKind.GitLab, "https://gitlab.com/")]
@@ -305,7 +301,7 @@ public sealed class RepositoryEditorViewModelTests
         configuration.CredentialReference.Should().Be(original.CredentialReference);
     }
 
-    [EditorFact]
+    [Fact]
     public void Path_case_change_is_not_an_identity_change()
     {
         var original = Data.Config() with { ExternalId = "R_42" };
@@ -314,7 +310,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.TryBuild(0)!.ExternalId.Should().Be("R_42");
     }
 
-    [Fact(Skip = "Bug: saving drops SelectedMilestoneId when the milestone is not among the loaded choices (no snapshot yet, disabled repository, closed milestone); see report.")]
+    [Fact]
     public void Selected_milestone_survives_when_milestones_are_not_loaded()
     {
         var editor = new RepositoryEditorViewModel(Data.Config() with { SelectedMilestoneId = "M1" }, hasStoredToken: true);
@@ -325,7 +321,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.TryBuild(0)!.SelectedMilestoneId.Should().Be("M1");
     }
 
-    [EditorFact]
+    [Fact]
     public void Switching_provider_switches_the_public_server()
     {
         var editor = new RepositoryEditorViewModel(null, hasStoredToken: false);
@@ -346,7 +342,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.TokenHint.Should().Contain("Fine-grained");
     }
 
-    [EditorFact]
+    [Fact]
     public void Switching_provider_keeps_a_self_hosted_server()
     {
         var editor = new RepositoryEditorViewModel(null, hasStoredToken: false) { ServerUrl = "https://git.example.com/" };
@@ -356,7 +352,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.ServerUrl.Should().Be("https://git.example.com/");
     }
 
-    [EditorFact]
+    [Fact]
     public void Pasting_a_gitlab_url_fills_provider_server_and_path()
     {
         var editor = new RepositoryEditorViewModel(null, hasStoredToken: false);
@@ -369,7 +365,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.Title.Should().Be("group/sub/project");
     }
 
-    [EditorFact]
+    [Fact]
     public void Pasting_a_github_url_into_a_gitlab_editor_switches_to_github()
     {
         var editor = new RepositoryEditorViewModel(null, hasStoredToken: false) { Provider = RepositoryProviderKind.GitLab };
@@ -381,7 +377,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.RepositoryPath.Should().Be("octo/widget");
     }
 
-    [EditorFact]
+    [Fact]
     public void Pasting_a_url_below_the_configured_relative_root_keeps_the_root()
     {
         var editor = new RepositoryEditorViewModel(null, hasStoredToken: false) { Provider = RepositoryProviderKind.GitLab };
@@ -394,7 +390,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.RepositoryPath.Should().Be("team/app");
     }
 
-    [EditorFact]
+    [Fact]
     public void Pasting_an_unparseable_url_leaves_the_input_for_validation()
     {
         var editor = new RepositoryEditorViewModel(null, hasStoredToken: false) { NewToken = "t" };
@@ -406,7 +402,7 @@ public sealed class RepositoryEditorViewModelTests
         editor.TryBuild(0).Should().BeNull();
     }
 
-    [EditorFact]
+    [Fact]
     public void Title_and_token_status_raise_change_notifications()
     {
         var editor = new RepositoryEditorViewModel(null, hasStoredToken: false);

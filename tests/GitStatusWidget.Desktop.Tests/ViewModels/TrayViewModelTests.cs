@@ -183,7 +183,7 @@ public sealed class TrayViewModelTests
         menuChanges.Should().Be(beforeRemoval + 1);
     }
 
-    [AvaloniaFact(Skip = "Bug: the tray repository submenu describes healthy/refreshing repositories as 'provider error' and never refreshes the status text; see report.")]
+    [AvaloniaFact]
     public void Repository_menu_status_describes_the_current_health()
     {
         var hub = new RepositoryStatusHub();

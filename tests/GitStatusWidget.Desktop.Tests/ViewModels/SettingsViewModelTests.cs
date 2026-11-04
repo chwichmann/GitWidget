@@ -26,10 +26,10 @@ public sealed class SettingsViewModelTests
     private SettingsViewModel Create(params RepositoryConfiguration[] repositories)
     {
         _controller = new FakeSynchronizationController(new AppSettings { Repositories = repositories });
-        return new SettingsViewModel(new SettingsService(_store, _controller, _autostart), _credentials, _providers, _cache, _hub);
+        return new SettingsViewModel(new SettingsService(_store, _controller, _autostart), _credentials, new GitStatusWidget.Application.Platform.CredentialStoreStatus("Test store", true, null), _providers, _cache, _hub);
     }
 
-    [EditorFact]
+    [Fact]
     public void Reload_lists_repositories_in_sort_order_and_selects_the_first()
     {
         var second = Data.Config(name: "second", sortOrder: 1);
@@ -44,7 +44,7 @@ public sealed class SettingsViewModelTests
         vm.StartAtLoginSupported.Should().BeTrue();
     }
 
-    [EditorFact]
+    [Fact]
     public void Milestone_choices_come_from_the_hub_snapshot_and_exclude_closed_milestones()
     {
         var configuration = Data.Config() with { SelectedMilestoneId = "M2" };
@@ -61,7 +61,7 @@ public sealed class SettingsViewModelTests
         editor.SelectedMilestone!.Id.Should().Be("M2");
     }
 
-    [EditorFact]
+    [Fact]
     public void Select_picks_the_repository_or_adds_a_new_one()
     {
         var a = Data.Config(name: "a", sortOrder: 0);
@@ -79,7 +79,7 @@ public sealed class SettingsViewModelTests
         vm.Selected!.IsNew.Should().BeTrue();
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Save_stores_a_new_token_in_the_credential_store_only()
     {
         var vm = Create();
@@ -106,7 +106,7 @@ public sealed class SettingsViewModelTests
         closed.Should().Be(1);
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Save_without_new_token_does_not_touch_the_credential_store()
     {
         var vm = Create(Data.Config());
@@ -118,7 +118,7 @@ public sealed class SettingsViewModelTests
         _store.Saved.Should().ContainSingle();
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Save_writes_global_options_and_sort_order()
     {
         var a = Data.Config(name: "a", sortOrder: 0);
@@ -145,7 +145,7 @@ public sealed class SettingsViewModelTests
         saved.ShowWidgetOnStartup.Should().BeFalse();
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Save_mirrors_start_at_login_to_the_os()
     {
         var vm = Create(Data.Config());
@@ -156,7 +156,7 @@ public sealed class SettingsViewModelTests
         _autostart.SetCalls.Should().Equal(true);
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Validation_failure_selects_the_offending_repository_and_does_not_save()
     {
         var good = Data.Config(name: "good", sortOrder: 0);
@@ -177,7 +177,7 @@ public sealed class SettingsViewModelTests
         closed.Should().BeFalse();
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Validation_failure_does_not_store_tokens_of_other_repositories()
     {
         var vm = Create();
@@ -193,7 +193,7 @@ public sealed class SettingsViewModelTests
         vm.Repositories[0].NewToken.Should().Be(Token, "the token is kept in the form until a successful save");
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Removing_a_repository_deletes_cache_and_token_when_requested()
     {
         var keep = Data.Config(name: "keep", sortOrder: 0);
@@ -216,7 +216,7 @@ public sealed class SettingsViewModelTests
         _store.Saved.Single().Repositories.Select(r => r.Id).Should().Equal(keep.Id);
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Removing_a_repository_can_keep_the_token()
     {
         var remove = Data.Config();
@@ -231,7 +231,7 @@ public sealed class SettingsViewModelTests
         _credentials.Deletes.Should().BeEmpty();
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Removing_an_unsaved_repository_deletes_nothing()
     {
         var vm = Create();
@@ -244,7 +244,7 @@ public sealed class SettingsViewModelTests
         _credentials.Deletes.Should().BeEmpty();
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Cancel_discards_removals_and_edits()
     {
         var configuration = Data.Config();
@@ -261,7 +261,7 @@ public sealed class SettingsViewModelTests
         _cache.Deleted.Should().BeEmpty();
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Test_connection_uses_the_selected_provider_and_shows_the_result()
     {
         var vm = Create(Data.Config(provider: RepositoryProviderKind.GitLab, owner: "group", name: "project"));
@@ -283,7 +283,7 @@ public sealed class SettingsViewModelTests
         _store.Saved.Should().BeEmpty("testing does not save settings");
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Test_connection_reports_failures()
     {
         var vm = Create(Data.Config());
@@ -295,7 +295,7 @@ public sealed class SettingsViewModelTests
         vm.Selected.ConnectionMessage.Should().Be("Token rejected");
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Test_connection_reports_provider_exceptions()
     {
         var vm = Create(Data.Config());
@@ -308,7 +308,7 @@ public sealed class SettingsViewModelTests
         vm.Selected.IsTesting.Should().BeFalse();
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Test_connection_stores_a_newly_typed_token_first()
     {
         var vm = Create();
@@ -329,7 +329,7 @@ public sealed class SettingsViewModelTests
         _credentials.Writes.Should().Equal(reference);
     }
 
-    [EditorFact]
+    [Fact]
     public async Task Test_connection_with_invalid_form_shows_validation_and_does_not_call_the_provider()
     {
         var vm = Create();

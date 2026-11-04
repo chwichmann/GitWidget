@@ -20,7 +20,7 @@ public static class RepositoryAddress
             return false;
         }
 
-        var full = url.GetLeftPart(UriPartial.Path).TrimEnd('/');
+        var full = $"{url.Scheme}://{url.Authority}{url.AbsolutePath}".TrimEnd('/');
         if (full.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
         {
             full = full[..^4];

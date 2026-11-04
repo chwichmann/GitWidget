@@ -148,6 +148,8 @@ public sealed partial class TrayViewModel : ObservableObject, IDisposable
 
     private static string Describe(RepositoryHealthState health) => health switch
     {
+        RepositoryHealthState.Healthy => "up to date",
+        RepositoryHealthState.Refreshing => "refreshing",
         RepositoryHealthState.Stale => "stale",
         RepositoryHealthState.Offline => "offline",
         RepositoryHealthState.RateLimited => "rate limited",
@@ -183,7 +185,7 @@ public sealed partial class TrayViewModel : ObservableObject, IDisposable
         ToolTip = text.Length > 120 ? text[..119] + "…" : text;
 
         var repositories = states.Select(s => (s.Id, s.Configuration.EffectiveDisplayName, Describe(s.Health))).ToList();
-        if (!repositories.Select(r => (r.Id, r.EffectiveDisplayName)).SequenceEqual(Repositories.Select(r => (r.Id, r.Name))))
+        if (!repositories.SequenceEqual(Repositories))
         {
             Repositories = repositories;
             RepositoriesChanged?.Invoke(this, EventArgs.Empty);

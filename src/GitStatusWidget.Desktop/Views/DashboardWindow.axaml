@@ -65,7 +65,7 @@
           <Border Classes="card" IsVisible="{Binding HasProblem}" BorderBrush="{DynamicResource WarningBrush}">
             <StackPanel Spacing="2">
               <TextBlock FontWeight="SemiBold">
-                <Run Text="{Binding Projection.Health.State, Converter={x:Static c:StateGlyphConverter.Instance}, FallbackValue=''}" />
+                <Run Text="{Binding Projection.Health.State, Converter={x:Static c:StateGlyphConverter.Instance}, FallbackValue='', Mode=OneWay}" />
                 <Run Text=" " />
                 <Run Text="{Binding Projection.Health.Summary, FallbackValue=''}" />
               </TextBlock>
@@ -107,7 +107,7 @@
                       <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,0,0,10">
                         <TextBlock TextTrimming="CharacterEllipsis">
                           <Run Text="{Binding Title}" FontWeight="SemiBold" />
-                          <Run Text="{Binding DueDate, Converter={x:Static c:LocalTimeConverter.Instance}, StringFormat=' · due {0}'}" />
+                          <Run Text="{Binding DueDate, Converter={x:Static c:LocalTimeConverter.Instance}, StringFormat=' · due {0}', Mode=OneWay}" />
                         </TextBlock>
                         <TextBlock Grid.Column="1" Classes="subtle" Margin="8,0,0,0">
                           <Run Text="{Binding OpenIssues}" /><Run Text=" open · " /><Run Text="{Binding ClosedIssues}" /><Run Text=" closed" />
@@ -219,7 +219,7 @@
                     <Button Classes="icon" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="0,3"
                             Command="{Binding $parent[Window].((vm:DashboardViewModel)DataContext).OpenUrlCommand}" CommandParameter="{Binding WebUrl}">
                       <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock TextTrimming="CharacterEllipsis"><Run Text="{Binding Number, StringFormat='#{0} '}" Foreground="{DynamicResource SubtleTextBrush}" /><Run Text="{Binding Title}" /><Run Text="{Binding IsDraft, Converter={x:Static c:DraftConverter.Instance}}" Foreground="{DynamicResource SubtleTextBrush}" /></TextBlock>
+                        <TextBlock TextTrimming="CharacterEllipsis"><Run Text="{Binding Number, StringFormat='#{0} '}" Foreground="{DynamicResource SubtleTextBrush}" /><Run Text="{Binding Title}" /><Run Text="{Binding IsDraft, Converter={x:Static c:DraftConverter.Instance}, Mode=OneWay}" Foreground="{DynamicResource SubtleTextBrush}" /></TextBlock>
                         <TextBlock Grid.Column="1" Classes="caption" Margin="8,0,0,0" Text="{Binding UpdatedAt, Converter={x:Static c:LocalTimeConverter.Instance}}" />
                       </Grid>
                     </Button>

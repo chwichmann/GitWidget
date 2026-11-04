@@ -283,7 +283,7 @@ public sealed class DashboardViewModelTests : IDisposable
         _navigator.Calls.Should().Equal($"OpenInBrowser({url})");
     }
 
-    [Fact(Skip = "Bug: renaming a repository (same snapshot) keeps the old dashboard header because the content signature ignores the header; see report.")]
+    [Fact]
     public void Renaming_the_repository_updates_the_header()
     {
         var configuration = Data.Config();

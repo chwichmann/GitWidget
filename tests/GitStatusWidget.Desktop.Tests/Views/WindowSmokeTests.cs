@@ -222,9 +222,9 @@ public sealed class WindowSmokeTests
 
     [AvaloniaFact]
     public void Dashboard_window_shows_a_repository_without_binding_errors() =>
-        ShowPopulatedDashboard().Where(m => !KnownBugs.IsRunWriteBack(m)).Should().BeEmpty();
+        ShowPopulatedDashboard().Should().BeEmpty();
 
-    [AvaloniaFact(Skip = KnownBugs.RunWriteBack)]
+    [AvaloniaFact]
     public void Dashboard_window_logs_no_binding_warnings_at_all() =>
         ShowPopulatedDashboard().Should().BeEmpty();
 
@@ -248,7 +248,7 @@ public sealed class WindowSmokeTests
     public void Settings_window_without_repositories_renders()
     {
         var vm = new SettingsViewModel(new SettingsService(new FakeSettingsStore(), new FakeSynchronizationController(), new FakeAutostartService()),
-            new FakeCredentialStore(), new FakeProviderResolver(), new FakeRepositoryCache(), _hub);
+            new FakeCredentialStore(), new GitStatusWidget.Application.Platform.CredentialStoreStatus("Test store", true, null), new FakeProviderResolver(), new FakeRepositoryCache(), _hub);
         using var errors = new BindingErrorSink();
         var window = new SettingsWindow { DataContext = vm };
 
@@ -261,13 +261,13 @@ public sealed class WindowSmokeTests
         window.Close();
     }
 
-    [AvaloniaFact(Skip = KnownBugs.EditorConstructor, SkipType = typeof(KnownBugs), SkipWhen = nameof(KnownBugs.EditorConstructorThrows))]
+    [AvaloniaFact]
     public void Settings_window_shows_repositories_without_binding_errors()
     {
         var configuration = PublishGitHub();
         var controller = new FakeSynchronizationController(new AppSettings { Repositories = [configuration, Data.Config(provider: RepositoryProviderKind.GitLab, owner: "group", name: "project", sortOrder: 1)] });
         var vm = new SettingsViewModel(new SettingsService(new FakeSettingsStore(), controller, new FakeAutostartService()),
-            new FakeCredentialStore(), new FakeProviderResolver(), new FakeRepositoryCache(), _hub);
+            new FakeCredentialStore(), new GitStatusWidget.Application.Platform.CredentialStoreStatus("Test store", true, null), new FakeProviderResolver(), new FakeRepositoryCache(), _hub);
         using var errors = new BindingErrorSink();
         var window = new SettingsWindow { DataContext = vm };
 

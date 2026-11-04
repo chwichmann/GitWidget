@@ -130,18 +130,27 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         if (row is null)
         {
             row = new RepositoryRowViewModel(state.Id);
-            var index = 0;
-            var order = _hub.States.Select(s => s.Id).ToList();
-            while (index < Rows.Count && order.IndexOf(Rows[index].Id) < order.IndexOf(state.Id))
-            {
-                index++;
-            }
-
-            Rows.Insert(index, row);
+            Rows.Add(row);
         }
 
         row.Update(projection, _time.GetUtcNow());
+        SortRows();
         UpdateFooter();
+    }
+
+    /// <summary>Keeps rows in user-defined order (SortOrder can change in Settings); Move keeps row instances.</summary>
+    private void SortRows()
+    {
+        var order = _hub.States.Select(s => s.Id).ToList();
+        var sorted = Rows.OrderBy(r => order.IndexOf(r.Id) is var i && i >= 0 ? i : int.MaxValue).ToList();
+        for (var target = 0; target < sorted.Count; target++)
+        {
+            var current = Rows.IndexOf(sorted[target]);
+            if (current != target)
+            {
+                Rows.Move(current, target);
+            }
+        }
     }
 
     private void UpdateFreshness()
@@ -160,8 +169,9 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         IsEmpty = Rows.Count == 0;
         IsAnyRefreshing = Rows.Any(r => r.IsRefreshing);
         var last = Rows.Select(r => r.LastSuccessAt).Where(t => t is not null).DefaultIfEmpty(null).Max();
+        var count = $"{Rows.Count} {(Rows.Count == 1 ? "repository" : "repositories")}";
         FooterText = IsEmpty
             ? "No repositories configured"
-            : $"{Rows.Count} {(Rows.Count == 1 ? "repository" : "repositories")} · updated {Format.Age(last, _time.GetUtcNow())}";
+            : last is null ? $"{count} · not updated yet" : $"{count} · updated {Format.Age(last, _time.GetUtcNow())}";
     }
 }

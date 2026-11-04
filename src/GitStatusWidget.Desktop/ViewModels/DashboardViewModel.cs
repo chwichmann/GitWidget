@@ -216,7 +216,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
             // Same content: keep list instances (and scroll positions); only health/freshness changed.
             if (Projection is not null)
             {
-                Projection = Projection with { Health = projection.Health };
+                Projection = Projection with { Header = projection.Header, Health = projection.Health };
             }
 
             return;

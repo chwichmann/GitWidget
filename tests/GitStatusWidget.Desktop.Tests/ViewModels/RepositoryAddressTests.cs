@@ -130,7 +130,7 @@ public sealed class RepositoryAddressTests
         path.Should().Be("my group/project");
     }
 
-    [Fact(Skip = "Bug: URLs with user info (e.g. pasted clone URLs https://user@host/...) produce a corrupt path; see report.")]
+    [Fact]
     public void User_info_is_ignored()
     {
         var ok = RepositoryAddress.TryParseUrl("https://oauth2@gitlab.com/group/project.git", null, out var server, out var path, out _);

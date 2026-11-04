@@ -68,7 +68,7 @@ public sealed class WidgetViewModelTests : IDisposable
         vm.Rows.Select(r => r.DisplayName).Should().Equal("octo/a", "octo/b", "octo/c");
     }
 
-    [Fact(Skip = "Bug: reordering repositories in Settings (SortOrder change) does not reorder existing widget rows; see report.")]
+    [Fact]
     public void Rows_follow_sort_order_changes()
     {
         var vm = Create();
@@ -158,7 +158,7 @@ public sealed class WidgetViewModelTests : IDisposable
         vm.FooterText.Should().StartWith("1 repository · ");
     }
 
-    [Fact(Skip = "Bug (cosmetic): footer reads '1 repository · updated never updated' before the first success; see report.")]
+    [Fact]
     public void Footer_before_first_success_reads_naturally()
     {
         var vm = Create();

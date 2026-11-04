@@ -50,7 +50,7 @@ public sealed partial class RepositoryEditorViewModel : ObservableObject
     public partial RepositoryProviderKind Provider { get; set; }
 
     [ObservableProperty]
-    public partial string ServerUrl { get; set; }
+    public partial string ServerUrl { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string RepositoryPath { get; set; }
@@ -119,8 +119,15 @@ public sealed partial class RepositoryEditorViewModel : ObservableObject
 
     public void SetMilestones(IEnumerable<MilestoneChoice> milestones)
     {
-        MilestoneChoices = [new MilestoneChoice(null, "Automatic (nearest due date)"), .. milestones];
-        SelectedMilestone = MilestoneChoices.FirstOrDefault(m => m.Id == SelectedMilestoneId) ?? MilestoneChoices[0];
+        List<MilestoneChoice> choices = [new MilestoneChoice(null, "Automatic (nearest due date)"), .. milestones];
+        if (SelectedMilestoneId is { } selected && choices.All(m => m.Id != selected))
+        {
+            // Closed or not loaded yet (no snapshot, disabled repository): keep the configured milestone.
+            choices.Add(new MilestoneChoice(selected, "Configured milestone (not loaded)"));
+        }
+
+        MilestoneChoices = choices;
+        SelectedMilestone = choices.First(m => m.Id == SelectedMilestoneId);
     }
 
     /// <summary>Validates the form and builds the configuration, or returns <see langword="null"/> with <see cref="ValidationMessage"/> set.</summary>
