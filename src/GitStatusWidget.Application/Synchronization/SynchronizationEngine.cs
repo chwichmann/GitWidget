@@ -49,6 +49,9 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
     /// <summary>Unchanged snapshots are re-persisted at most this often (keeps freshness after restart).</summary>
     public static readonly TimeSpan PersistUnchangedInterval = TimeSpan.FromMinutes(5);
 
+    /// <summary>Sections due within this window are fetched together with a section that is already due.</summary>
+    public static readonly TimeSpan CoalesceWindow = TimeSpan.FromSeconds(10);
+
     private static readonly TimeSpan MaxBackoff = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan BaseBackoff = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan DefaultRateLimitWait = TimeSpan.FromMinutes(1);
@@ -621,6 +624,28 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
         if (entry.NextReconcile <= now)
         {
             scope |= RefreshScope.Reconcile;
+        }
+
+        if (scope == RefreshScope.None)
+        {
+            return scope;
+        }
+
+        // Coalesce: sections that become due shortly anyway ride along instead of causing a second refresh.
+        var soon = now + CoalesceWindow;
+        if (entry.NextWorkItems <= soon)
+        {
+            scope |= RefreshScope.WorkItems;
+        }
+
+        if (entry.NextBuilds <= soon)
+        {
+            scope |= RefreshScope.Builds;
+        }
+
+        if (entry.NextMetadata <= soon)
+        {
+            scope |= RefreshScope.Metadata;
         }
 
         return scope;

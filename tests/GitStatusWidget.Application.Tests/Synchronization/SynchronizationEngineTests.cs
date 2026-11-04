@@ -222,19 +222,22 @@ public sealed class SynchronizationEngineTests : IDisposable
     public async Task Only_one_refresh_per_repository_runs_at_a_time()
     {
         var gate = new TaskCompletionSource();
+        var called = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _provider.Enqueue(async _ =>
         {
+            called.TrySetResult();
             await gate.Task;
             return FakeProvider.Full([Issue(1)]);
         });
         await StartAsync();
         _time.Advance(TimeSpan.FromSeconds(6));
         _engine.StartDueRefreshes(CancellationToken.None);
+        await called.Task.WaitAsync(TimeSpan.FromSeconds(10));
         _engine.RequestRefresh();
         _engine.StartDueRefreshes(CancellationToken.None);
-        await Task.Delay(50);
+        await Task.Delay(100);
 
-        _provider.Contexts.Should().HaveCount(1);
+        _provider.Contexts.Should().HaveCount(1, "a second refresh must not start while the first is running");
         gate.SetResult();
         await _engine.WhenIdleAsync();
         State.Health.Should().Be(RepositoryHealthState.Healthy);

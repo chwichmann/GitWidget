@@ -8,6 +8,7 @@ using GitStatusWidget.Desktop.Services;
 using GitStatusWidget.Infrastructure.Platform;
 using GitStatusWidget.Desktop.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace GitStatusWidget.Desktop;
 
@@ -39,6 +40,10 @@ public partial class App : Avalonia.Application
 
         var windows = Services.GetRequiredService<WindowManager>();
         desktop.ShutdownRequested += (_, _) => windows.SaveNow();
+
+        // SIGTERM / console close stop the host (and polling); the UI must not stay behind without data.
+        Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping.Register(() =>
+            Dispatcher.UIThread.Post(windows.ExitApplication));
         if (Services.GetService<ISingleInstanceGuard>() is SingleInstanceCoordinator instance)
         {
             // Subscribe first, then listen; the event is raised on a thread-pool thread.
