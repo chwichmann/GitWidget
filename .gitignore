@@ -27,3 +27,6 @@ desktop.ini
 *.token
 .env
 .env.*
+
+# Claude Code worktrees and local state
+.claude/
