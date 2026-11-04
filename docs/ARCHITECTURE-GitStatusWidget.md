@@ -117,14 +117,14 @@ The last valid snapshot remains visible while offline. The UI clearly shows fres
 | MVVM library | CommunityToolkit.Mvvm |
 | Hosting and DI | Microsoft.Extensions.Hosting |
 | HTTP | IHttpClientFactory |
-| HTTP resilience | Microsoft.Extensions.Http.Resilience |
+| HTTP resilience | Built-in bounded retry loop in `ProviderHttpClient` (TimeProvider-based, testable); no extra package |
 | JSON | System.Text.Json |
 | Tray integration | Avalonia `TrayIcon` / `NativeMenu` |
 | Logging | Microsoft.Extensions.Logging |
 | Local settings | JSON under the per-user local application data folder |
 | Snapshot cache | JSON for MVP |
 | Credentials | OS credential store behind `ICredentialStore` (Credential Manager / Keychain / Secret Service) |
-| Tests | xUnit v3, AwesomeAssertions (Apache-2.0 fork of FluentAssertions), WireMock.Net, Avalonia.Headless.XUnit |
+| Tests | xUnit v3 (3.2.x, required by Avalonia.Headless.XUnit), AwesomeAssertions (Apache-2.0 fork of FluentAssertions), WireMock.Net, Avalonia.Headless.XUnit |
 
 SQLite is deliberately deferred. Introduce `Microsoft.Data.Sqlite` only when historical time-series analysis becomes a requirement.
 
@@ -317,14 +317,22 @@ public interface IRepositoryStatusProvider
         RepositoryConfiguration configuration,
         CancellationToken cancellationToken);
 
-    Task<RepositorySnapshotResult> GetSnapshotAsync(
+    Task<ProviderFetchResult> FetchAsync(
         RepositoryConfiguration configuration,
-        SnapshotRequestContext context,
+        SnapshotRequestContext context,   // previous snapshot, provider sync state, RefreshScope, closed window
         CancellationToken cancellationToken);
 }
 ```
 
-`RepositorySnapshotResult` is a discriminated result and must distinguish:
+**Revision 2 (large repositories):** providers do not build snapshots themselves. They return *section updates* (`ProviderFetch`):
+
+- work items (issues, change requests): `Unchanged`, `Delta(changed items)` or `Full(open set, recently closed, closedSince)`;
+- milestones, labels, builds: `Unchanged` or `Replace(list)`;
+- `CountsUpdate`: exact closed totals (repository, per milestone, optionally per label) from a cheap count source (GraphQL on both providers, GitLab `issues_statistics` as fallback).
+
+The provider-neutral `SnapshotAssembler` (Application) merges them into the previous accepted snapshot: deltas upsert by external id and never remove items, full updates replace the open set, closed items are retained inside a configurable window (default 14 days), open counts are computed locally from the open set, closed counts come from the count source. A full open set that disagrees substantially with the provider's open count is rejected (ADR-004); small drifts after a delta trigger an early reconciliation. Provider-owned watermarks and ETags are kept in an opaque, persisted `ProviderSyncState`.
+
+`ProviderFetchResult` is a discriminated result and must distinguish:
 
 - success with a complete snapshot;
 - not modified;
@@ -334,7 +342,11 @@ public interface IRepositoryStatusProvider
 - rate limited with retry time;
 - transient provider failure;
 - malformed or unsupported response;
+- gateway or login-page interception (§9.4);
+- invalid local configuration;
 - partial snapshot, which is not accepted for comparison.
+
+"Not modified" is a success whose sections are all `Unchanged`.
 
 ### 8.1 Provider registry
 
@@ -356,7 +368,7 @@ Adding a provider must not require changes in dashboard ViewModels or comparison
 The GitLab adapter must:
 
 - support GitLab.com and configurable self-managed GitLab base URLs;
-- use GitLab REST API v4;
+- use GitLab REST API v4 for item data and GraphQL (`/api/graphql`) only for exact counts;
 - URL-encode numeric project IDs or project paths correctly;
 - follow pagination headers until all required pages are retrieved;
 - map GitLab issues separately from merge requests;
@@ -404,7 +416,7 @@ The GitHub adapter must:
 
 - support GitHub.com in the MVP;
 - allow a configurable API base URL for future GitHub Enterprise Server support;
-- use the versioned GitHub REST API;
+- use the versioned GitHub REST API (`X-GitHub-Api-Version: 2026-03-10`) for item data and GraphQL only for exact counts (REST milestone and repository counts include pull requests);
 - include a valid `User-Agent` header;
 - use pagination links until all required pages are retrieved;
 - distinguish issues from pull requests;

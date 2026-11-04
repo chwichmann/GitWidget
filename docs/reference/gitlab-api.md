@@ -1012,3 +1012,29 @@ alias glc='curl -sS -i -A "$UA" -H "PRIVATE-TOKEN: $GITLAB_TOKEN"'
 17. **Moved project redirect** (if a renamed project exists): `glc "$GITLAB_URL/api/v4/projects/<old%2Fpath>" | grep -iE '^(HTTP|location)'`
 18. **`X-Total` omission threshold** on the largest project (closed or all issues): `glc "$GITLAB_URL/api/v4/projects/$PID/issues?state=all&per_page=1" -o /dev/null -D - | grep -iE '^(x-total|link)'`
 19. **`last_activity_at` updates on issue changes** (for poll skipping): read `/projects/$PID`, close or reopen a test issue (manually in the UI, not from the widget), and read it again.
+
+---
+
+## 19. Verified on the target 19.5.1-ee instance (2026-11-04)
+
+Results of read-only checks run from a session on the work network (host redacted as `<base>`). These override "Unverified" notes above for this instance.
+
+| Topic | Result |
+|---|---|
+| API base | `<base>/api/v4`, no relative URL root; GraphQL at `<base>/api/graphql` |
+| TLS | Public CA (SwissSign), no corporate root needed |
+| Gateway (Citrix) | Admits any User-Agent **containing** `git/2.47.0` (e.g. `GitWidget/0.1 git/2.47.0` → 200). Other agents (e.g. `curl/8`) get `302 Object Moved`, `text/html`, `Location: https://<portal-host>/cgi/tm?code=…`, empty body. A VPN DNS race can also produce this redirect. |
+| GraphQL | Reachable through the gateway with the same User-Agent; `read_api` suffices. `issues(state:…, types:[ISSUE]) { count }` and `issues(milestoneTitle:…)` work (200, exact counts). |
+| `issues_statistics` | Same result with and without `issue_type=issue` (project only contains `issue` items). |
+| Issue types | All items are `issue_type: "issue"` (`type: "ISSUE"`). |
+| Feature flags | `issues/merge_requests/builds_access_level: "enabled"` even though the project has **0 MRs and 0 pipelines** → hide panels by empty data, not by flags. |
+| `/merge_requests`, `/pipelines` | `200 []` when empty |
+| `/pipelines/latest` | `403 {"message":"403 Forbidden"}` when no pipeline exists → treat as "none" |
+| Keyset pagination | Works on issues (`order_by=updated_at`): `Link rel="next"` with `cursor=`, no `X-Total`, no `X-Next-Page` |
+| ETag / 304 | Weak ETag, `304` works; the 304 was not faster (single sample) → bandwidth only |
+| Rate limits | No `RateLimit-*` headers at all |
+| Invalid token | `401`, `application/json`, **no** `WWW-Authenticate`, body `{"message":"401 Unauthorized"}` |
+| Missing project | `404 {"message":"404 Project Not Found"}` |
+| Issue `web_url` | `<base>/<group>/<project>/-/work_items/<iid>` |
+| Token self-info | `/personal_access_tokens/self` keys: id, name, revoked, created_at, description, scopes, user_id, last_used_at, last_used_ips, active, granular, expires_at (`YYYY-MM-DD`) |
+| Volume (target project) | ~1,450 issues (~320 open), 30 milestones (18 active), 41 labels, no MRs, no pipelines |
