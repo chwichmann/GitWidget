@@ -1,0 +1,29 @@
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+*.user
+*.suo
+.vs/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.DotSettings.user
+
+# Test results
+TestResults/
+*.trx
+coverage*.xml
+*.coverage
+
+# OS / sync clutter
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+
+# Local secrets must never be committed
+*.token
+.env
+.env.*

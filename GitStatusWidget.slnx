@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GitStatusWidget.Application/GitStatusWidget.Application.csproj" />
+    <Project Path="src/GitStatusWidget.Desktop/GitStatusWidget.Desktop.csproj" />
+    <Project Path="src/GitStatusWidget.Domain/GitStatusWidget.Domain.csproj" />
+    <Project Path="src/GitStatusWidget.Infrastructure/GitStatusWidget.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GitStatusWidget.Application.Tests/GitStatusWidget.Application.Tests.csproj" />
+    <Project Path="tests/GitStatusWidget.Desktop.Tests/GitStatusWidget.Desktop.Tests.csproj" />
+    <Project Path="tests/GitStatusWidget.Domain.Tests/GitStatusWidget.Domain.Tests.csproj" />
+    <Project Path="tests/GitStatusWidget.Infrastructure.Tests/GitStatusWidget.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

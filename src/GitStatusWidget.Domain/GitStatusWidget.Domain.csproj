@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Canonical, provider-neutral domain model. References no other solution project. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="GitStatusWidget.Domain.Tests" />
+  </ItemGroup>
+</Project>
