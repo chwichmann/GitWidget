@@ -532,10 +532,13 @@ public sealed class GitHubFetchTests : IDisposable
     [Fact]
     public async Task Disabled_issues_and_pull_requests_are_reported_as_features()
     {
-        _h.Api.StandardRepository(open: [], repository: GitHubFixtures.Repository(hasIssues: false, hasPullRequests: false), counts: GitHubFixtures.Counts(0, 0));
+        // Issues disabled: REST lists nothing (G12) while GraphQL still counts 12 hidden open issues.
+        _h.Api.StandardRepository(open: [], repository: GitHubFixtures.Repository(hasIssues: false, hasPullRequests: false), counts: GitHubFixtures.Counts(12, 30));
 
         var success = await _h.FetchSuccessAsync();
 
         success.Fetch.Features.Should().Be(new RepositoryFeatures(Issues: false, ChangeRequests: false, Builds: true));
+        success.Fetch.Counts!.OpenIssues.Should().BeNull();
+        SnapshotAssembler.Assemble(null, success.Fetch, Now, GitHubFixtures.ClosedWindowStart).Should().BeOfType<AssemblyResult.Accepted>();
     }
 }

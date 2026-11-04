@@ -192,13 +192,19 @@ internal sealed partial class GitHubStatusProvider : IRepositoryStatusProvider
         if (needCounts)
         {
             counts = await FetchCountsAsync(session, owner, name, cancellationToken).ConfigureAwait(false);
+            if (!features.Issues)
+            {
+                // With issues disabled the REST list is empty (G12) while GraphQL may still count the hidden issues;
+                // skip the open-set consistency check instead of rejecting every snapshot.
+                counts = counts with { OpenIssues = null };
+            }
         }
 
         var syncState = context.SyncState
             .WithValues((WatermarkKey, watermark?.ToString("o", CultureInfo.InvariantCulture)))
             .WithRequests(cache.Updates);
 
-        if (_logger.IsEnabled(LogLevel.Information))
+        if (_logger.IsEnabled(LogLevel.Debug))
         {
             LogFetchCompleted(_logger, identity.FullPath, scope, session.RequestCount, Describe(issues), Describe(changeRequests), counts is not null);
         }
@@ -611,7 +617,8 @@ internal sealed partial class GitHubStatusProvider : IRepositoryStatusProvider
             || TryParseCompactOffset(normalized, out parsed)
             || DateTimeOffset.TryParse(normalized, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out parsed))
         {
-            return DateOnly.FromDateTime(parsed.UtcDateTime);
+            // The calendar date as GitHub states it (in the header's own offset), which is what the user sees.
+            return DateOnly.FromDateTime(parsed.DateTime);
         }
 
         return null;
@@ -647,7 +654,7 @@ internal sealed partial class GitHubStatusProvider : IRepositoryStatusProvider
         _ => "unchanged",
     };
 
-    [LoggerMessage(EventId = 2100, Level = LogLevel.Information, Message = "GitHub fetch {Repository} ({Scope}): {Requests} requests, issues {Issues}, pull requests {PullRequests}, counts refreshed {Counts}")]
+    [LoggerMessage(EventId = 2100, Level = LogLevel.Debug, Message = "GitHub fetch {Repository} ({Scope}): {Requests} requests, issues {Issues}, pull requests {PullRequests}, counts refreshed {Counts}")]
     private static partial void LogFetchCompleted(ILogger logger, string repository, RefreshScope scope, int requests, string issues, string pullRequests, bool counts);
 
     [LoggerMessage(EventId = 2101, Level = LogLevel.Information, Message = "GitHub repository {Configured} is now {Current} (renamed or transferred)")]
