@@ -103,7 +103,7 @@ Unverified (needs check on 19.5 EE): the exact body for an expired token on 19.5
 
 Classification rule:
 - `401` → `AuthenticationFailed`. If the body says `expired` or `revoked`, show that reason. Stop polling.
-- `403` with `error == "insufficient_scope"` → `ConfigurationError` ("token lacks read_api").
+- `403` with `error == "insufficient_scope"` → `AuthorizationFailed` ("token lacks read_api").
 - `403` otherwise → `AuthorizationFailed`.
 
 DPoP (17.10+, opt-in per user): if the token owner enabled DPoP, plain PAT calls fail with `401 dpop_error`. Name this cause in the error message, but do not implement DPoP.
@@ -755,7 +755,7 @@ Sources: <https://docs.gitlab.com/api/rest/troubleshooting/>, **[live]**, **[src
 |---|---|---|---|
 | 400 | Invalid parameter value | `{"error":"order_by does not have a valid value"}` or `{"error":"updated_after is invalid"}` **[live]**. Validation: `{"message":{"field":["msg"]}}`. Missing parameter: `{"message":"400 (Bad request) \"x\" not given"}` | `MalformedOrUnsupported`. This is a programming or version bug. Log the parameter and do not retry. |
 | 401 | Missing, invalid, expired or revoked token | `{"message":"401 Unauthorized"}` **[live]**, or `{"error":"invalid_token","error_description":"…"}` **[src]** | `AuthenticationFailed` |
-| 403 | Role too low, feature disabled, insufficient scope, `pipelines/latest` with no pipeline | `{"message":"403 Forbidden"}`, or `{"error":"insufficient_scope",…,"scope":"api read_api"}` | `AuthorizationFailed`, except that `insufficient_scope` → `ConfigurationError` and `latest` → "no build" |
+| 403 | Role too low, feature disabled, insufficient scope, `pipelines/latest` with no pipeline | `{"message":"403 Forbidden"}`, or `{"error":"insufficient_scope",…,"scope":"api read_api"}` | `AuthorizationFailed` (with a "needs read_api" hint for `insufficient_scope`); the adapter does not call `latest` |
 | 404 | Project missing **or no access** (GitLab hides existence) | `{"message":"404 Project Not Found"}`, `{"message":"404 Milestone Not Found"}`; unrouted → `{"error":"404 Not Found"}` **[live]** | `NotFound`. Use the body to tell an encoding or proxy problem from a missing project. |
 | 405 | Non-GET on a moved project path | `{"message":"Non GET methods are not allowed for moved projects"}` | n/a (read-only) |
 | 408 | Database statement timeout on heavy list queries (MR docs) | | Transient. Retry with a smaller `per_page`. |
@@ -858,7 +858,7 @@ Assumptions: one project with about 2,500 open and 7,000 closed issues, about 12
 |---|---|---|
 | 1 | `GET /projects/:id/issues?issue_type=issue&state=all&updated_after=<W_i − 120 s>&order_by=updated_at&sort=asc&per_page=100` | Issue delta: created, closed, reopened, relabelled, retitled, reassigned, milestone change. Usually 0–3 items. |
 | 2 | `GET /projects/:id/merge_requests?state=all&updated_after=<W_m − 120 s>&order_by=updated_at&sort=asc&per_page=100` | MR delta (opened, merged, closed, draft toggle) |
-| 3 | `GET /projects/:id/pipelines?updated_after=<W_p − 120 s>&order_by=updated_at&sort=desc&per_page=20` | Pipeline status changes |
+| 3 | `GET /projects/:id/pipelines?ref=<default_branch>&order_by=id&sort=desc&per_page=20` with `If-None-Match` (as implemented) | Pipeline status changes |
 | 4 | `POST /api/graphql` counts query (below) **or** `GET /projects/:id/issues_statistics` | Open and closed totals (and per-milestone counts) |
 | (5) | `GET /projects/:id/pipelines/:pid` | Only when a pipeline became terminal, to get `finished_at` |
 

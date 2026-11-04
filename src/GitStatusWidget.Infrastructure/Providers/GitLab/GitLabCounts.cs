@@ -43,10 +43,11 @@ internal static class GitLabCounts
     /// <summary>
     /// GraphQL is treated as unavailable when its endpoint answered with an HTTP-level failure that is neither an
     /// authentication/authorization problem nor a rate limit (route missing, blocked by a gateway, 5xx after retries).
-    /// GraphQL <c>errors</c> arrive with HTTP 200 (no status code on the exception) and fail the fetch.
+    /// GraphQL <c>errors</c> arrive with HTTP 200 (<see cref="GraphQlErrorException"/>) and fail the fetch.
     /// </summary>
     internal static bool CanFallBack(ProviderFailureException ex) =>
-        ex.StatusCode is not null
+        ex is not GraphQlErrorException
+        && ex.StatusCode is not null
         && ex.Kind is not (ProviderFailureKind.AuthenticationFailed or ProviderFailureKind.AuthorizationFailed or ProviderFailureKind.RateLimited);
 
     internal static async Task<CountsUpdate> FetchGraphQlAsync(

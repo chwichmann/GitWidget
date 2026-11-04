@@ -41,7 +41,7 @@ internal static class GraphQl
             var kind = string.Equals(first.Type, "NOT_FOUND", StringComparison.OrdinalIgnoreCase)
                 ? ProviderFailureKind.NotFound
                 : ProviderFailureKind.Malformed;
-            throw new ProviderFailureException(kind, $"GraphQL error: {Truncate(first.Message)}");
+            throw new GraphQlErrorException(kind, $"GraphQL error: {Truncate(first.Message)}");
         }
 
         return envelope.Data ?? throw new ProviderFailureException(ProviderFailureKind.Malformed, "GraphQL response contained no data.");
@@ -56,3 +56,9 @@ internal static class GraphQl
 
     private sealed record GraphQlError(string? Message, string? Type, [property: JsonPropertyName("extensions")] JsonElement? Extensions);
 }
+
+/// <summary>
+/// The GraphQL endpoint answered (HTTP 200) but reported <c>errors</c>. Distinguishes query errors from endpoint
+/// failures (missing route, gateway, 5xx), which may justify a REST fallback.
+/// </summary>
+internal sealed class GraphQlErrorException(ProviderFailureKind kind, string message) : ProviderFailureException(kind, message);

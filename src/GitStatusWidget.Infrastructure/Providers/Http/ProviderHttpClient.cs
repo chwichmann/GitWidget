@@ -240,7 +240,8 @@ internal sealed partial class ProviderHttpClient
 
         var target = location.IsAbsoluteUri ? location : new Uri(requestUri, location);
         var sameHost = string.Equals(target.Host, requestUri.Host, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(target.Scheme, requestUri.Scheme, StringComparison.OrdinalIgnoreCase);
+            && string.Equals(target.Scheme, requestUri.Scheme, StringComparison.OrdinalIgnoreCase)
+            && target.Port == requestUri.Port;
         if (!sameHost)
         {
             return new ProviderFailureException(
