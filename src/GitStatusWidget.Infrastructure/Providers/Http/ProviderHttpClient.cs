@@ -111,7 +111,7 @@ internal sealed partial class ProviderHttpClient
             {
                 return await SendOnceAsync(request, cancellationToken).ConfigureAwait(false);
             }
-            catch (ProviderFailureException ex) when (ex.Kind == ProviderFailureKind.Transient && attempt < _options.RetryDelays.Count)
+            catch (ProviderFailureException ex) when (ex.Kind is ProviderFailureKind.Transient or ProviderFailureKind.Offline && attempt < _options.RetryDelays.Count)
             {
                 var delay = WithJitter(_options.RetryDelays[attempt]);
                 if (_logger.IsEnabled(LogLevel.Debug))
@@ -155,7 +155,10 @@ internal sealed partial class ProviderHttpClient
         }
         catch (HttpRequestException ex)
         {
-            throw new ProviderFailureException(ProviderFailureKind.Transient, $"Network error: {Describe(ex)}", inner: ex);
+            var kind = ex.HttpRequestError is HttpRequestError.NameResolutionError or HttpRequestError.ConnectionError
+                ? ProviderFailureKind.Offline
+                : ProviderFailureKind.Transient;
+            throw new ProviderFailureException(kind, $"Network error: {Describe(ex)}", inner: ex);
         }
 
         using (response)

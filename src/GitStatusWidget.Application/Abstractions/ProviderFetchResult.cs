@@ -33,6 +33,9 @@ public enum ProviderFailureKind
 
     /// <summary>The data could not be retrieved completely (for example a later page failed).</summary>
     Partial,
+
+    /// <summary>The server is unreachable (DNS failure, connection refused, no network).</summary>
+    Offline,
 }
 
 /// <summary>
