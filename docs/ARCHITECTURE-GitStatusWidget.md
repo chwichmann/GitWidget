@@ -2,8 +2,8 @@
 
 ## Architecture Document
 
-**Status:** Proposed  
-**Target:** Windows 11, WPF, .NET 10  
+**Status:** Accepted (revision 2, 2026-11-04: WPF replaced by Avalonia, cross-platform)  
+**Target:** Windows 10/11 (primary), macOS, Linux (best effort); Avalonia, .NET 10  
 **Supported providers:** GitLab repositories and GitHub repositories  
 **Operating mode:** Local polling only, no webhooks, no relay service, no embedded web server  
 **Primary audience:** Claude Code and developers implementing the application
@@ -12,7 +12,7 @@
 
 ## 1. Purpose
 
-Git Repository Status Widget is a small Windows desktop application that visualizes the current status of one or more GitLab or GitHub repositories. It runs primarily in the Windows system tray and can display a compact floating widget, an expanded dashboard, and short animated notifications when repository state changes are detected.
+Git Repository Status Widget (product name: **GitWidget**) is a small cross-platform desktop application that visualizes the current status of one or more GitLab or GitHub repositories. It runs primarily in the system tray (Windows notification area, macOS menu bar, Linux StatusNotifier tray) and can display a compact floating widget, an expanded dashboard, and short animated notifications when repository state changes are detected.
 
 The application retrieves repository data by polling the provider APIs. It compares each new provider snapshot with the previously accepted snapshot and derives semantic events such as `IssueCreated`, `IssueClosed`, `IssueReopened`, `MilestoneProgressChanged`, and `PipelineFailed`.
 
@@ -36,12 +36,14 @@ The application is read-only. It must not create, modify, close, label, assign, 
    - pull requests or merge requests as a distinct category.
 3. Detect changes through polling and snapshot comparison.
 4. Animate newly detected events without replaying old events at startup.
-5. Operate from the Windows system tray.
+5. Operate from the system tray / menu bar.
 6. Provide compact and expanded views.
-7. Store credentials securely in Windows Credential Manager.
+7. Store credentials securely in the OS credential store (Windows Credential Manager, macOS Keychain, Linux Secret Service).
 8. Persist configuration and the last accepted snapshot locally.
 9. Handle API pagination, conditional requests, rate limits, transient errors, suspend/resume, and offline operation.
 10. Keep the UI and application core provider-neutral.
+11. Monitor several repositories at once, mixing GitHub and GitLab, from the first usable version.
+12. Scale to large repositories (thousands of closed issues) without downloading the full history on every poll.
 
 ### 2.2 Quality goals
 
@@ -63,7 +65,6 @@ The initial product does not include:
 - webhooks;
 - a SignalR relay;
 - a browser-based UI;
-- Linux or macOS support;
 - repository write operations;
 - issue editing;
 - GitHub Projects boards;
@@ -111,19 +112,19 @@ The last valid snapshot remains visible while offline. The UI clearly shows fres
 | Concern | Choice |
 |---|---|
 | Runtime | .NET 10 |
-| Desktop UI | WPF |
+| Desktop UI | Avalonia 12 (Fluent theme, compiled bindings) |
 | Presentation pattern | MVVM |
 | MVVM library | CommunityToolkit.Mvvm |
 | Hosting and DI | Microsoft.Extensions.Hosting |
 | HTTP | IHttpClientFactory |
 | HTTP resilience | Microsoft.Extensions.Http.Resilience |
 | JSON | System.Text.Json |
-| Tray integration | H.NotifyIcon.Wpf |
+| Tray integration | Avalonia `TrayIcon` / `NativeMenu` |
 | Logging | Microsoft.Extensions.Logging |
-| Local settings | JSON under `%LocalAppData%` |
+| Local settings | JSON under the per-user local application data folder |
 | Snapshot cache | JSON for MVP |
-| Credentials | Windows Credential Manager |
-| Tests | xUnit, FluentAssertions, WireMock.Net |
+| Credentials | OS credential store behind `ICredentialStore` (Credential Manager / Keychain / Secret Service) |
+| Tests | xUnit v3, AwesomeAssertions (Apache-2.0 fork of FluentAssertions), WireMock.Net, Avalonia.Headless.XUnit |
 
 SQLite is deliberately deferred. Introduce `Microsoft.Data.Sqlite` only when historical time-series analysis becomes a requirement.
 
@@ -132,7 +133,7 @@ SQLite is deliberately deferred. Introduce `Microsoft.Data.Sqlite` only when his
 ## 6. Solution structure
 
 ```text
-GitStatusWidget.sln
+GitStatusWidget.slnx
 
 src/
   GitStatusWidget.Domain/
@@ -156,12 +157,13 @@ src/
       GitLab/
       GitHub/
     Persistence/
-    Credentials/
+    Credentials/          (Windows, macOS, Linux implementations)
+    Platform/             (autostart, single instance, reduced motion, URL launcher)
     Resilience/
     Time/
 
-  GitStatusWidget.Wpf/
-    App.xaml
+  GitStatusWidget.Desktop/        (Avalonia, assembly name GitWidget)
+    App.axaml
     Hosting/
     Views/
     ViewModels/
@@ -175,13 +177,13 @@ tests/
   GitStatusWidget.Domain.Tests/
   GitStatusWidget.Application.Tests/
   GitStatusWidget.Infrastructure.Tests/
-  GitStatusWidget.Wpf.Tests/
+  GitStatusWidget.Desktop.Tests/
 ```
 
 ### Dependency direction
 
 ```text
-Wpf ------------> Application ------------> Domain
+Desktop --------> Application ------------> Domain
  |                      ^
  |                      |
  +-----> Infrastructure+
@@ -194,7 +196,7 @@ Rules:
 - `Domain` references no other solution project.
 - `Application` references only `Domain`.
 - `Infrastructure` implements interfaces defined by `Application` and uses `Domain`.
-- `Wpf` composes the application and may reference `Application`, `Infrastructure`, and `Domain`.
+- `Desktop` composes the application and may reference `Application`, `Infrastructure`, and `Domain`.
 - Provider DTOs remain internal to their provider implementation.
 
 ---
@@ -377,6 +379,20 @@ Store both:
 - provider project ID returned by GitLab.
 
 The provider project ID becomes `RepositoryIdentity.ExternalId` after the first successful connection.
+
+### 9.4 Gateways and reverse proxies (observed on the target GitLab 19.5.1-ee instance)
+
+Corporate GitLab instances can sit behind an access gateway (for example Citrix) that:
+
+- serves an HTML logon page instead of the API unless the request carries an accepted `User-Agent` (the target gateway accepts git-like agents such as `git/2.47.0`);
+- answers with `302` to a logon portal when the client reaches the gateway's public address (for example after a VPN DNS race).
+
+Therefore:
+
+1. The `User-Agent` is configurable per repository (default `GitWidget/<version>`), so it can match what the gateway allows.
+2. Automatic redirects are disabled for provider clients. A redirect to another host, or any `2xx` response whose content type is not JSON, is classified as `GatewayInterception`, mapped to `ProviderError` health with the explanation "reached a login page or gateway instead of the API", and never parsed as data.
+3. The target instance returns no `RateLimit-*` headers; rate-limit handling must work when they are absent.
+4. The instance returns weak ETags (`W/"…"`) and honors `If-None-Match` with `304`; weak validators must be sent back unchanged.
 
 ---
 
@@ -594,32 +610,34 @@ Projection rules must be explicit:
 - Milestone completion is `closed / (open + closed)` and must handle zero items.
 - An issue with several labels contributes to every matching label count.
 - Label totals therefore do not sum to the number of issues.
-- “Closed today” uses the user's local Windows time zone.
+- “Closed today” uses the user's local time zone (`TimeProvider.LocalTimeZone`).
 - Provider timestamps are parsed and stored as `DateTimeOffset` in UTC.
 
 ---
 
-## 16. WPF user experience
+## 16. Desktop user experience (Avalonia)
 
 ### 16.1 Application modes
 
 1. **Tray mode:** no visible window, application remains active.
-2. **Compact widget:** approximately 360 × 190 device-independent pixels.
+2. **Compact widget:** approximately 360 device-independent pixels wide; one stacked row per enabled repository (see 16.2). Height grows with the number of repositories up to a configurable maximum, then scrolls.
 3. **Expanded dashboard:** approximately 1,000 × 650 device-independent pixels, resizable.
 4. **Toast overlay:** short-lived, non-activating event notification.
 5. **Settings window:** repository, authentication, polling, startup, and appearance settings.
 
-### 16.2 Compact widget
+### 16.2 Compact widget (multi-repository)
 
-Display:
+The compact widget is a single borderless window containing one row per enabled repository, in user-defined order. Each row displays:
 
 - repository name and provider icon;
-- freshness indicator;
+- health/freshness indicator (not color-only: icon + tooltip text);
 - open issue count;
-- closed issue count;
-- selected/current milestone progress;
-- last successful update;
+- closed issue count and "closed today";
+- selected/current milestone progress bar;
+- latest default-branch build state dot (hidden when the repository has no CI);
 - subtle pending refresh indicator.
+
+A footer shows the last successful update across all repositories. Clicking a row opens the expanded dashboard for that repository. Sections without data (for example no merge requests, no pipelines) are hidden rather than shown as zero.
 
 ### 16.3 Expanded dashboard
 
@@ -648,7 +666,7 @@ Use provider branding only for identification. Data colors remain semantically c
 - Closing an issue shows a green confirmation animation.
 - Opening or creating an issue uses a blue entry animation.
 - Failed builds use one short red pulse, never a continuous flash.
-- Respect the Windows reduced-motion preference.
+- Respect the operating system's reduced-motion preference (Windows client-area animation setting, macOS Reduce Motion, GNOME enable-animations).
 - Do not block the UI thread while animating or refreshing.
 
 ### 16.5 Window behavior
@@ -674,7 +692,7 @@ Refresh now
 -----------------
 Repository: owner/repository >
 Always on top              [x]
-Start with Windows         [x]
+Start at login             [x]
 Settings
 -----------------
 Exit
@@ -695,7 +713,15 @@ Do not encode all state solely by color; expose descriptive tooltip text.
 
 ### 18.1 Storage
 
-Store tokens in Windows Credential Manager. Configuration stores only a credential reference such as:
+Store tokens in the operating system's credential store behind one `ICredentialStore` abstraction:
+
+| OS | Store |
+|---|---|
+| Windows | Credential Manager (generic credential, `CRED_PERSIST_LOCAL_MACHINE`, no roaming) |
+| macOS | Keychain (generic password, service `GitStatusWidget`) |
+| Linux | Secret Service via libsecret; if no keyring daemon is available, refuse to store and show a clear error |
+
+See `docs/reference/platform-integration.md` for API details. Configuration stores only a credential reference such as:
 
 ```text
 GitStatusWidget/{configuration-guid}
@@ -714,8 +740,10 @@ GitStatusWidget/{configuration-guid}
 
 ## 19. Local storage
 
+Root folder: `Environment.SpecialFolder.LocalApplicationData` + `GitStatusWidget` (Windows `%LocalAppData%\GitStatusWidget`, macOS `~/Library/Application Support/GitStatusWidget`, Linux `$XDG_DATA_HOME/GitStatusWidget` or `~/.local/share/GitStatusWidget`).
+
 ```text
-%LocalAppData%\GitStatusWidget\
+<app-data>/GitStatusWidget/
   settings.json
   window-state.json
   cache\
@@ -833,7 +861,7 @@ Provide a diagnostics view with:
 ## 23. Security boundaries
 
 1. Treat all provider data as untrusted input.
-2. Render titles as plain WPF text, never as executable markup or HTML.
+2. Render titles as plain text (`TextBlock.Text`), never as executable markup or HTML.
 3. Validate external URLs before launching them and allow only `https`, with optional `http` only for explicitly configured internal GitLab instances.
 4. Do not deserialize polymorphic provider payloads with unrestricted type metadata.
 5. Set response size limits appropriate to repository size.
@@ -894,9 +922,9 @@ Use WireMock.Net to validate:
 - event-ledger deduplication;
 - no credential material in persisted files.
 
-### 24.5 WPF tests
+### 24.5 Desktop (Avalonia) tests
 
-Keep UI code thin. Unit-test ViewModels and commands. Add limited UI automation only for critical flows:
+Keep UI code thin. Unit-test ViewModels and commands. Use Avalonia.Headless.XUnit for limited UI tests of critical flows:
 
 - first-run repository setup;
 - tray show/hide;
@@ -983,10 +1011,11 @@ Closing the widget window is not application shutdown. Only the tray Exit comman
 
 ## 28. Key architecture decisions
 
-### ADR-001: WPF and Windows only
+### ADR-001: Avalonia, cross-platform (supersedes "WPF and Windows only")
 
-**Decision:** Use WPF on .NET 10.  
-**Reason:** The product is a lightweight Windows tray and desktop widget. WPF provides mature windowing, animation, binding, and system integration without a browser runtime.
+**Decision:** Use Avalonia 12 on .NET 10, targeting Windows (primary), macOS and Linux.  
+**Reason:** The application is developed on macOS and used on Windows. Avalonia provides WPF-like XAML, styling, animation, MVVM binding, tray icons and borderless/topmost windows on all three platforms without a browser runtime, and keeps the Domain/Application/Infrastructure layers unchanged.  
+**Consequences:** OS-specific concerns (credential store, autostart, single instance, reduced motion) live behind interfaces in `Infrastructure/Platform` and `Infrastructure/Credentials`. On Linux/Wayland, window positioning and always-on-top are best effort.
 
 ### ADR-002: Polling instead of webhooks
 
@@ -1008,10 +1037,10 @@ Closing the widget window is not application shutdown. Only the tray Exit comman
 **Decision:** Use versioned JSON for current state and configuration.  
 **Reason:** The MVP stores one current snapshot, not analytical history. SQLite becomes justified when durable time-series queries are introduced.
 
-### ADR-006: Windows Credential Manager
+### ADR-006: OS credential store
 
-**Decision:** Store tokens in Windows Credential Manager.  
-**Reason:** Tokens must not be placed in settings files, while a Windows-only product can use the native per-user credential facility.
+**Decision:** Store tokens in Windows Credential Manager, macOS Keychain or Linux Secret Service behind `ICredentialStore`.  
+**Reason:** Tokens must not be placed in settings files; each OS provides a native per-user secret facility.
 
 ### ADR-007: Provider-specific HTTP clients
 
@@ -1024,7 +1053,7 @@ Closing the widget window is not application shutdown. Only the tray Exit comman
 
 Claude Code must follow these constraints while implementing:
 
-1. Do not introduce webhooks, ASP.NET Core hosting, SignalR, Electron, WebView2, MAUI, Avalonia, or a local web server.
+1. Do not introduce webhooks, ASP.NET Core hosting, SignalR, Electron, WebView2, MAUI, WPF, or a local web server.
 2. Do not couple ViewModels to provider DTOs.
 3. Do not place access tokens in source code, user secrets intended for development, JSON settings, logs, snapshots, or test output.
 4. Do not accept partial snapshots.
@@ -1032,7 +1061,7 @@ Claude Code must follow these constraints while implementing:
 6. Do not count GitHub pull requests as issues.
 7. Do not count GitLab merge requests as issues.
 8. Do not retry rate-limit responses as ordinary transient failures.
-9. Do not block the WPF dispatcher with HTTP, file, or credential operations.
+9. Do not block the Avalonia UI thread (dispatcher) with HTTP, file, or credential operations.
 10. Do not add SQLite until a historical-data requirement is implemented.
 11. Add tests with every provider mapping and comparison behavior.
 12. Preserve provider-neutral names in Domain and Application projects.
@@ -1053,13 +1082,13 @@ Implement one end-to-end vertical slice before building the full dashboard:
 
 1. Create the solution and dependency structure.
 2. Define canonical repository and issue snapshots.
-3. Implement settings and Windows Credential Manager abstraction.
+3. Implement settings and the credential store abstraction (Windows, macOS, Linux).
 4. Implement GitLab issue retrieval and fixture tests.
 5. Implement GitHub issue retrieval, PR exclusion, and fixture tests.
 6. Implement polling orchestration and complete-snapshot acceptance.
 7. Implement JSON snapshot persistence.
 8. Implement deterministic issue comparison.
-9. Implement a compact WPF widget with open/closed counts.
+9. Implement the compact multi-repository Avalonia widget with open/closed counts.
 10. Add tray show, hide, refresh, settings, and exit commands.
 11. Verify startup does not emit historical animations.
 12. Add issue-opened and issue-closed animations.
@@ -1070,8 +1099,8 @@ The milestone is complete only when the same compact widget works against one Gi
 
 ## 31. Acceptance criteria for MVP
 
-- A user can configure either a GitLab or GitHub repository.
-- The token is stored only in Windows Credential Manager.
+- A user can configure several GitLab and GitHub repositories at the same time.
+- The token is stored only in the OS credential store.
 - The application starts in the tray and restores the cached dashboard immediately.
 - A complete refresh updates issues, milestones, labels, change requests, and recent builds.
 - GitHub pull requests are excluded from issue totals.
