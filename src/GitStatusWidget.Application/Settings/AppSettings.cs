@@ -1,0 +1,36 @@
+using GitStatusWidget.Domain.Events;
+
+namespace GitStatusWidget.Application.Settings;
+
+/// <summary>
+/// Application-wide user settings (persisted as <c>settings.json</c>). Contains no secrets.
+/// </summary>
+public sealed record AppSettings
+{
+    /// <summary>Monitored repositories.</summary>
+    public IReadOnlyList<RepositoryConfiguration> Repositories { get; init; } = [];
+
+    /// <summary>Show the compact widget when the application starts.</summary>
+    public bool ShowWidgetOnStartup { get; init; } = true;
+
+    /// <summary>Keep the widget above other windows.</summary>
+    public bool AlwaysOnTop { get; init; }
+
+    /// <summary>Start the application at login (mirrors the OS registration).</summary>
+    public bool StartAtLogin { get; init; }
+
+    /// <summary>Show toast notifications.</summary>
+    public bool ToastsEnabled { get; init; } = true;
+
+    /// <summary>Lowest priority that produces a toast; lower priorities go to the activity feed only.</summary>
+    public EventPriority MinimumToastPriority { get; init; } = EventPriority.Medium;
+
+    /// <summary>Closed issues and change requests updated within this window are kept for "recently closed".</summary>
+    public TimeSpan RecentlyClosedWindow { get; init; } = TimeSpan.FromDays(14);
+
+    /// <summary>Maximum number of repositories refreshed concurrently.</summary>
+    public int MaxConcurrentRefreshes { get; init; } = 2;
+
+    /// <summary>Theme: <c>System</c>, <c>Light</c> or <c>Dark</c>.</summary>
+    public string Theme { get; init; } = "System";
+}
