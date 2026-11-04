@@ -8,6 +8,28 @@
 **Operating mode:** Local polling only, no webhooks, no relay service, no embedded web server  
 **Primary audience:** Claude Code and developers implementing the application
 
+## Revision 2 summary (2026-11-04)
+
+Decisions that changed the original draft (details in the referenced sections):
+
+| Topic | Original draft | Revision 2 |
+|---|---|---|
+| UI framework / platforms | WPF, Windows only | Avalonia 12, Windows (primary), macOS, Linux best effort (ADR-001) |
+| Repositories | single repository first, multi-repository in phase 3 | several repositories from the first version; compact widget shows one row per repository (§16.2) |
+| Snapshot content | all issues and pull/merge requests | all open items plus closed items updated inside a window (default 14 days); repository totals from count sources (§7, §8) |
+| Provider contract | provider builds the snapshot | provider returns section updates (delta/full/unchanged); provider-neutral `SnapshotAssembler` merges them (§8) |
+| Counts | REST | GraphQL for exact counts on both providers (REST milestone/repository counts include pull requests on GitHub; GitLab milestones carry no counts); GitLab `issues_statistics` fallback |
+| HTTP resilience | Microsoft.Extensions.Http.Resilience | built-in bounded retry loop in `ProviderHttpClient` (testable with `TimeProvider`) |
+| Credentials | Windows Credential Manager | OS credential store per platform behind `ICredentialStore` (ADR-006) |
+| Gateways | not covered | configurable User-Agent, no automatic redirects, login-page detection (§9.4) |
+| Assertions library | FluentAssertions | AwesomeAssertions (FluentAssertions 8 requires a commercial license) |
+
+Implementation status:
+
+- **Implemented:** canonical model, comparer, assembler, synchronization engine (intervals, jitter, coalescing, backoff, rate-limit waits, suspension, staleness, resume detection, catch-up suppression), versioned JSON persistence, GitHub and GitLab adapters, credential stores (Windows/macOS/Linux + session fallback), single instance, start at login, reduced-motion detection, tray, compact widget, dashboard, settings, toasts and animations, diagnostics, packaging (Windows zip, macOS app bundle, Linux tarball) and CI.
+- **Verified live:** GitHub on macOS (PowerShell/PSReadLine, cli/go-gh); GitLab request shapes on gitlab.com and on the target 19.5.1-ee instance via curl (gitlab-api.md §19); Windows Credential Manager and Run key in CI on windows-latest.
+- **Open:** end-to-end run against the target GitLab instance on Windows; Windows tray/toast behaviour on a real desktop; signed binaries; SQLite history (deferred).
+
 ---
 
 ## 1. Purpose
