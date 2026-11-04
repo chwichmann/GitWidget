@@ -18,6 +18,7 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  AVALONIA_TELEMETRY_OPTOUT: 1
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
@@ -88,6 +89,17 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
           restore-keys: nuget-${{ runner.os }}-
 
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "value=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            base=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)
+            echo "value=${base}-ci.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish self-contained single file
         shell: bash
         run: >
@@ -95,14 +107,36 @@ jobs:
           -c Release -r ${{ matrix.rid }} --self-contained true
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
           -p:DebugType=embedded
+          -p:Version=${{ steps.version.outputs.value }}
           -o publish/${{ matrix.rid }}
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path publish/${{ matrix.rid }}/* -DestinationPath dist/GitWidget-${{ matrix.rid }}.zip
+
+      - name: Package (macOS app bundle)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dist
+          tools/package-macos.sh publish/${{ matrix.rid }} dist ${{ steps.version.outputs.value }}
+          rm -rf dist/GitWidget.app
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist
+          tar -C publish/${{ matrix.rid }} -czf dist/GitWidget-${{ matrix.rid }}.tar.gz .
 
       - name: Upload build
         uses: actions/upload-artifact@v7
         with:
           name: GitWidget-${{ matrix.rid }}
-          path: publish/${{ matrix.rid }}
+          path: dist/*
           retention-days: 30
 
   release:
@@ -117,14 +151,11 @@ jobs:
         with:
           pattern: GitWidget-*
           path: dist
-
-      - name: Zip builds
-        working-directory: dist
-        run: for d in GitWidget-*; do (cd "$d" && zip -qr "../$d.zip" .); done
+          merge-multiple: true
 
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
         run: >
-          gh release create "${{ github.ref_name }}" dist/*.zip
+          gh release create "${{ github.ref_name }}" dist/*
           --repo "${{ github.repository }}" --title "${{ github.ref_name }}" --generate-notes --prerelease

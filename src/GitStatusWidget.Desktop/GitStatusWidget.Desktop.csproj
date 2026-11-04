@@ -11,6 +11,8 @@
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
     <!-- Executable without public API surface: XML docs are not required for UI code. -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <PublishDocumentationFiles>false</PublishDocumentationFiles>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
   </PropertyGroup>
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />

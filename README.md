@@ -11,10 +11,25 @@ Built with .NET 10 and [Avalonia](https://avaloniaui.net/). It runs on Windows (
 Every push to `main` builds self-contained binaries, so no .NET installation is required:
 
 1. Open the [Actions](../../actions) tab and pick the latest successful **CI** run.
-2. Download `GitWidget-win-x64`, `GitWidget-osx-arm64` or `GitWidget-linux-x64` from the run's artifacts.
-3. Extract the archive and start `GitWidget.exe` (Windows) or `GitWidget` (macOS/Linux).
+2. Download the artifact for your system and unpack it (the artifact download is itself a zip around the archive):
+   - **Windows:** `GitWidget-win-x64.zip` → start `GitWidget.exe`.
+   - **macOS (Apple Silicon):** `GitWidget-osx-arm64.zip` → move `GitWidget.app` to *Applications*. The app is not notarized: on first start right-click it → *Open* (or allow it under *System Settings → Privacy & Security*). It appears in the menu bar only.
+   - **Linux:** `GitWidget-linux-x64.tar.gz` → start `./GitWidget`.
 
 Tagged versions (`v*`) are additionally published as GitHub releases.
+
+## First steps
+
+1. **Start GitWidget.** On Windows the binary is unsigned, so SmartScreen may warn ("More info" → "Run anyway"). It runs without administrator rights. GitWidget lives in the tray (Windows notification area / macOS menu bar). Closing the widget only hides it; use **Exit** in the tray menu to quit.
+2. **Add a repository** in Settings (the ⚙ button in the widget, or the tray menu). Pasting the repository URL fills in server and path.
+3. **Create a read-only token:**
+   - **GitHub:** a fine-grained personal access token limited to the repository, with read-only *Metadata*, *Issues*, *Pull requests* and *Actions*.
+   - **GitLab:** a personal or project access token with only the `read_api` scope (Reporter role or higher).
+   The token is stored in the OS credential store (Windows Credential Manager, macOS Keychain, Linux Secret Service), never in files.
+4. **GitLab behind an access gateway** (for example Citrix) that only admits git clients: under *Advanced*, set the User-Agent to something like `GitWidget/0.1 git/2.47.0`. If GitWidget reports that a login page or gateway answered instead of the API, check the VPN and this setting.
+5. Click **Test connection**, then **Save**.
+
+Logs (no tokens, no issue contents) are written to `%LocalAppData%\GitStatusWidget\logs` on Windows (`~/Library/Application Support/GitStatusWidget/logs` on macOS). Settings and the snapshot cache live next to them.
 
 ## Build from source
 
