@@ -99,6 +99,9 @@ public sealed partial class TrayViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private void OpenDiagnostics() => _navigator.ShowDiagnostics();
+
+    [RelayCommand]
     private void Exit() => _navigator.ExitApplication();
 
     public void Dispose()

@@ -130,6 +130,9 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     private void OpenUrl(Uri? url) => _navigator.OpenInBrowser(url);
 
     [RelayCommand]
+    private void OpenDiagnostics() => _navigator.ShowDiagnostics();
+
+    [RelayCommand]
     private void OpenSettings() => _navigator.ShowSettings(SelectedRepository?.Id, addNew: SelectedRepository is null);
 
     public void Dispose()

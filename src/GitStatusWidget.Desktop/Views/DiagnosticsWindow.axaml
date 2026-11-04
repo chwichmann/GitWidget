@@ -1,0 +1,77 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GitStatusWidget.Desktop.ViewModels"
+        xmlns:s="using:GitStatusWidget.Desktop.Services"
+        x:Class="GitStatusWidget.Desktop.Views.DiagnosticsWindow"
+        x:DataType="vm:DiagnosticsViewModel"
+        Title="GitWidget – Diagnostics"
+        Width="820" Height="600" MinWidth="560" MinHeight="360"
+        Icon="/Assets/gitwidget.png"
+        Background="{DynamicResource PageBackgroundBrush}"
+        WindowStartupLocation="CenterScreen">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="0,0,0,12">
+      <TextBlock FontSize="18" FontWeight="SemiBold"><Run Text="GitWidget " /><Run Text="{Binding AppVersion}" /></TextBlock>
+      <TextBlock Classes="subtle" Text="{Binding Runtime}" />
+      <TextBlock Classes="subtle" Text="{Binding CredentialStore, StringFormat='Credential store: {0}'}" />
+      <TextBlock Classes="subtle" Text="{Binding DataDirectory, StringFormat='Data and cache: {0}'}" />
+      <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+        <Button Content="Reload" Command="{Binding ReloadCommand}" />
+        <Button Content="Open log folder" Command="{Binding OpenLogFolderCommand}" />
+        <Button Content="Open data folder" Command="{Binding OpenDataFolderCommand}" />
+        <Button Content="Copy report" Command="{Binding CopyCommand}" ToolTip.Tip="Copies a sanitized report (no tokens, no issue contents)" />
+      </StackPanel>
+    </StackPanel>
+    <ScrollViewer>
+      <StackPanel Spacing="12">
+        <ItemsControl ItemsSource="{Binding Repositories}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:DiagnosticsRepositoryItem">
+              <Border Classes="card" Margin="0,0,0,10">
+                <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                  <TextBlock Grid.ColumnSpan="2" Classes="section" Text="{Binding Name}" />
+                  <TextBlock Grid.Row="1" Classes="subtle" Text="Provider / API" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" TextWrapping="Wrap"><Run Text="{Binding Provider}" /><Run Text=" · " /><Run Text="{Binding ApiBase}" /></TextBlock>
+                  <TextBlock Grid.Row="2" Classes="subtle" Text="Health" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Health}" />
+                  <TextBlock Grid.Row="3" Classes="subtle" Text="Last attempt" />
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LastAttempt}" />
+                  <TextBlock Grid.Row="4" Classes="subtle" Text="Last success" />
+                  <TextBlock Grid.Row="4" Grid.Column="1"><Run Text="{Binding LastSuccess}" /><Run Text=" · snapshot age " /><Run Text="{Binding SnapshotAge}" /></TextBlock>
+                  <TextBlock Grid.Row="5" Classes="subtle" Text="Contents" />
+                  <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Contents}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="6" Classes="subtle" Text="Rate limit" />
+                  <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding RateLimit}" />
+                  <TextBlock Grid.Row="7" Classes="subtle" Text="Paused until" IsVisible="{Binding BlockedUntil, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                  <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding BlockedUntil}" IsVisible="{Binding BlockedUntil, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                  <TextBlock Grid.Row="8" Classes="subtle" Text="Last error" IsVisible="{Binding LastError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                  <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding LastError}" TextWrapping="Wrap" Foreground="{DynamicResource FailureBrush}"
+                             IsVisible="{Binding LastError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="section" Text="Recent errors" />
+            <TextBlock Classes="subtle" Text="No errors since GitWidget started." IsVisible="{Binding !Errors.Count}" />
+            <ItemsControl ItemsSource="{Binding Errors}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="s:DiagnosticsError">
+                  <TextBlock TextWrapping="Wrap" Margin="0,0,0,4">
+                    <Run Text="{Binding At, StringFormat='{}{0:HH:mm:ss}'}" Foreground="{DynamicResource SubtleTextBrush}" />
+                    <Run Text=" " /><Run Text="{Binding Repository}" FontWeight="SemiBold" />
+                    <Run Text=" · " /><Run Text="{Binding Kind}" />
+                    <Run Text=" · " /><Run Text="{Binding Message}" />
+                  </TextBlock>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

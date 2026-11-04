@@ -39,6 +39,28 @@ public sealed class SettingsService
         SettingsChanged?.Invoke(this, settings);
     }
 
+    /// <summary>
+    /// Makes the start-at-login setting follow the OS registration (the user may have disabled the entry in the
+    /// OS startup settings).
+    /// </summary>
+    public async Task SyncAutostartAsync(CancellationToken cancellationToken)
+    {
+        if (!_autostart.IsSupported)
+        {
+            return;
+        }
+
+        var registered = await _autostart.IsEnabledAsync(cancellationToken).ConfigureAwait(false);
+        var current = _controller.Settings;
+        if (registered != current.StartAtLogin)
+        {
+            var updated = current with { StartAtLogin = registered };
+            await _store.SaveAsync(updated, cancellationToken).ConfigureAwait(false);
+            await _controller.ApplySettingsAsync(updated, cancellationToken).ConfigureAwait(false);
+            SettingsChanged?.Invoke(this, updated);
+        }
+    }
+
     public Task UpdateAsync(Func<AppSettings, AppSettings> change, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(change);

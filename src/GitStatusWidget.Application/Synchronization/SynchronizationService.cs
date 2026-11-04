@@ -19,6 +19,7 @@ public sealed partial class SynchronizationService : BackgroundService
     private readonly ISettingsStore _settings;
     private readonly TimeProvider _time;
     private readonly ILogger<SynchronizationService> _logger;
+    private readonly TimeSpan _initialDelay;
 
     /// <summary>Creates the service.</summary>
     /// <param name="engine">Engine.</param>
@@ -26,11 +27,24 @@ public sealed partial class SynchronizationService : BackgroundService
     /// <param name="time">Time provider.</param>
     /// <param name="logger">Logger.</param>
     public SynchronizationService(SynchronizationEngine engine, ISettingsStore settings, TimeProvider time, ILogger<SynchronizationService> logger)
+        : this(engine, settings, time, logger, TimeSpan.Zero)
+    {
+    }
+
+    /// <summary>Creates the service with a delay before the first refresh (for example after login, when the
+    /// network or VPN may not be ready yet).</summary>
+    /// <param name="engine">Engine.</param>
+    /// <param name="settings">Settings store.</param>
+    /// <param name="time">Time provider.</param>
+    /// <param name="logger">Logger.</param>
+    /// <param name="initialDelay">Delay before polling starts.</param>
+    public SynchronizationService(SynchronizationEngine engine, ISettingsStore settings, TimeProvider time, ILogger<SynchronizationService> logger, TimeSpan initialDelay)
     {
         _engine = engine;
         _settings = settings;
         _time = time;
         _logger = logger;
+        _initialDelay = initialDelay;
     }
 
     /// <inheritdoc />
@@ -50,6 +64,12 @@ public sealed partial class SynchronizationService : BackgroundService
         var lastWake = _time.GetUtcNow();
         try
         {
+            if (_initialDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(_initialDelay, _time, stoppingToken).ConfigureAwait(false);
+                lastWake = _time.GetUtcNow();
+            }
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 var next = _engine.StartDueRefreshes(stoppingToken);

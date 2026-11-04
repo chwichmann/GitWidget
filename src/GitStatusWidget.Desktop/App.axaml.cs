@@ -36,6 +36,7 @@ public partial class App : Avalonia.Application
 
         // Instantiate notification services so they subscribe before the first refresh.
         Services.GetRequiredService<ActivityFeed>();
+        Services.GetRequiredService<DiagnosticsLog>();
         Services.GetRequiredService<ToastService>();
 
         var windows = Services.GetRequiredService<WindowManager>();
@@ -72,6 +73,14 @@ public partial class App : Avalonia.Application
         }
 
         await windows.InitializeAsync().ConfigureAwait(true);
+        try
+        {
+            await Services.GetRequiredService<SettingsService>().SyncAutostartAsync(CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            // Autostart state is informational; never block startup on it.
+        }
     }
 
     private void RebuildRepositoryMenu(TrayViewModel tray)

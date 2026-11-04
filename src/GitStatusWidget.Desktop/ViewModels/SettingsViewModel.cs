@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using GitStatusWidget.Application.Abstractions;
 using GitStatusWidget.Application.Credentials;
 using GitStatusWidget.Application.Persistence;
+using GitStatusWidget.Application.Platform;
 using GitStatusWidget.Application.Settings;
 using GitStatusWidget.Application.Synchronization;
 using GitStatusWidget.Desktop.Services;
@@ -21,8 +22,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly IRepositoryStatusHub _hub;
     private readonly List<RepositoryEditorViewModel> _removed = [];
 
-    public SettingsViewModel(SettingsService settings, ICredentialStore credentials, IRepositoryStatusProviderResolver providers, IRepositoryCache cache, IRepositoryStatusHub hub)
+    private readonly CredentialStoreStatus _credentialStatus;
+
+    public SettingsViewModel(SettingsService settings, ICredentialStore credentials, CredentialStoreStatus credentialStatus, IRepositoryStatusProviderResolver providers, IRepositoryCache cache, IRepositoryStatusHub hub)
     {
+        _credentialStatus = credentialStatus;
         _settings = settings;
         _credentials = credentials;
         _providers = providers;
@@ -42,7 +46,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public string CredentialStoreName => _credentials.StoreName;
 
-    public bool CredentialStoreAvailable => _credentials.IsAvailable;
+    public bool CredentialStoreAvailable => _credentials.IsAvailable && _credentialStatus.IsPersistent;
+
+    public string? CredentialFallbackReason => _credentialStatus.FallbackReason;
 
     public bool StartAtLoginSupported => _settings.AutostartSupported;
 

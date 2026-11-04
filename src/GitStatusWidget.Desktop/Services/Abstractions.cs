@@ -19,6 +19,8 @@ public interface IAppNavigator
 
     void ShowSettings(Guid? repositoryId = null, bool addNew = false);
 
+    void ShowDiagnostics();
+
     void OpenInBrowser(Uri? uri);
 
     void ExitApplication();

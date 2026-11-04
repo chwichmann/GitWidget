@@ -20,7 +20,7 @@ namespace GitStatusWidget.Desktop.Hosting;
 /// <summary>Composition root (architecture §25 step 2).</summary>
 internal static class DesktopServices
 {
-    public static HostApplicationBuilder Configure(HostApplicationBuilder builder, AppPaths paths)
+    public static HostApplicationBuilder Configure(HostApplicationBuilder builder, AppPaths paths, bool autostarted = false)
     {
         builder.Logging.ClearProviders();
 #if DEBUG
@@ -64,7 +64,12 @@ internal static class DesktopServices
             sp.GetRequiredService<TimeProvider>(),
             sp.GetRequiredService<ILogger<SynchronizationEngine>>()));
         services.AddSingleton<ISynchronizationController>(sp => sp.GetRequiredService<SynchronizationEngine>());
-        services.AddHostedService<SynchronizationService>();
+        services.AddHostedService(sp => new SynchronizationService(
+            sp.GetRequiredService<SynchronizationEngine>(),
+            sp.GetRequiredService<ISettingsStore>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<ILogger<SynchronizationService>>(),
+            autostarted ? TimeSpan.FromSeconds(20) : TimeSpan.Zero));
         services.AddSingleton<DashboardProjector>();
 
         // Desktop
@@ -74,6 +79,8 @@ internal static class DesktopServices
         services.AddSingleton<WindowManager>();
         services.AddSingleton<IAppNavigator>(sp => sp.GetRequiredService<WindowManager>());
         services.AddSingleton<ActivityFeed>();
+        services.AddSingleton<DiagnosticsLog>();
+        services.AddTransient<DiagnosticsViewModel>();
         services.AddSingleton(sp => new ToastService(
             sp.GetRequiredService<IRepositoryStatusHub>(),
             sp.GetRequiredService<ISynchronizationController>(),

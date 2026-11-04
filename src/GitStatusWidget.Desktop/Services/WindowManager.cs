@@ -53,6 +53,7 @@ public sealed partial class WindowManager : IAppNavigator, IToastPresenter, IDis
     private WidgetWindow? _widget;
     private DashboardWindow? _dashboard;
     private SettingsWindow? _settingsWindow;
+    private DiagnosticsWindow? _diagnosticsWindow;
     private WindowStateModel _state = new();
     private DispatcherTimer? _saveTimer;
 
@@ -162,6 +163,22 @@ public sealed partial class WindowManager : IAppNavigator, IToastPresenter, IDis
         ((SettingsViewModel)_settingsWindow.DataContext!).Select(repositoryId, addNew);
         _settingsWindow.Show();
         _settingsWindow.Activate();
+    }
+
+    public void ShowDiagnostics()
+    {
+        if (_diagnosticsWindow is null)
+        {
+            _diagnosticsWindow = new DiagnosticsWindow { DataContext = _services.GetRequiredService<DiagnosticsViewModel>() };
+            _diagnosticsWindow.Closed += (_, _) => _diagnosticsWindow = null;
+        }
+        else if (_diagnosticsWindow.DataContext is DiagnosticsViewModel vm)
+        {
+            vm.ReloadCommand.Execute(null);
+        }
+
+        _diagnosticsWindow.Show();
+        _diagnosticsWindow.Activate();
     }
 
     public void OpenInBrowser(Uri? uri)

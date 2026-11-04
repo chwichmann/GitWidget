@@ -32,7 +32,7 @@ internal static class Program
             Args = args,
             ContentRootPath = AppContext.BaseDirectory,
             DisableDefaults = true,
-        }), paths);
+        }), paths, autostarted: args.Contains("--autostart"));
         builder.Services.AddSingleton<ISingleInstanceGuard>(instance);
 
         using var host = builder.Build();

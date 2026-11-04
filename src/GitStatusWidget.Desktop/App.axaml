@@ -26,6 +26,7 @@
             <NativeMenuItem Header="Always on top" ToggleType="CheckBox" IsChecked="{Binding AlwaysOnTop}" Command="{Binding ToggleAlwaysOnTopCommand}" />
             <NativeMenuItem Header="Start at login" ToggleType="CheckBox" IsChecked="{Binding StartAtLogin}" IsEnabled="{Binding StartAtLoginSupported}" Command="{Binding ToggleStartAtLoginCommand}" />
             <NativeMenuItem Header="Settings…" Command="{Binding OpenSettingsCommand}" />
+            <NativeMenuItem Header="Diagnostics…" Command="{Binding OpenDiagnosticsCommand}" />
             <NativeMenuItemSeparator />
             <NativeMenuItem Header="Exit" Command="{Binding ExitCommand}" />
           </NativeMenu>
