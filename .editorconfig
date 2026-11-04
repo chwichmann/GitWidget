@@ -1,0 +1,27 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,yml,yaml,props,targets,csproj,slnx,axaml,xml,manifest}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_using_directive_placement = outside_namespace
+dotnet_sort_system_directives_first = true
+
+# Static factories on generic discriminated-union records are intentional.
+dotnet_diagnostic.CA1000.severity = none
+# Library-style ConfigureAwait is unnecessary in an app; continuations are handled explicitly where needed.
+dotnet_diagnostic.CA2007.severity = none
+# Expensive log arguments are guarded with ILogger.IsEnabled explicitly.
+dotnet_diagnostic.CA1873.severity = none
