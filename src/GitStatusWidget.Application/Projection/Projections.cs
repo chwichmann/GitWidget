@@ -113,12 +113,13 @@ public sealed record RepositoryHeaderProjection(Guid RepositoryId, string Displa
 /// <summary>Summary numbers.</summary>
 /// <param name="OpenIssues">Open issues.</param>
 /// <param name="ClosedIssues">Closed issues (whole repository).</param>
-/// <param name="ClosedToday">Issues closed today (local time zone).</param>
-/// <param name="OpenedToday">Issues created today (local time zone).</param>
+/// <param name="ClosedToday">Issues closed in the counting period (today in the local time zone, or the last 24 hours).</param>
+/// <param name="OpenedToday">Issues created in the counting period.</param>
 /// <param name="OpenWithoutMilestone">Open issues without milestone.</param>
 /// <param name="OpenWithoutAssignee">Open issues without assignee.</param>
 /// <param name="OpenChangeRequests">Open pull/merge requests.</param>
 /// <param name="ChangeRequestLabel">Presentation label: "pull requests" or "merge requests".</param>
+/// <param name="PeriodLabel">Label of the counting period: "today" or "last 24 h" (issue #9).</param>
 public sealed record SummaryProjection(
     int OpenIssues,
     int ClosedIssues,
@@ -127,7 +128,8 @@ public sealed record SummaryProjection(
     int OpenWithoutMilestone,
     int OpenWithoutAssignee,
     int OpenChangeRequests,
-    string ChangeRequestLabel);
+    string ChangeRequestLabel,
+    string PeriodLabel = DashboardProjector.TodayLabel);
 
 /// <summary>One row of the compact multi-repository widget.</summary>
 /// <param name="Header">Header.</param>

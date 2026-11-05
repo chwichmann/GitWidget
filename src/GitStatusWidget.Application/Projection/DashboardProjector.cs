@@ -1,4 +1,5 @@
 using System.Globalization;
+using GitStatusWidget.Application.Settings;
 using GitStatusWidget.Application.Synchronization;
 using GitStatusWidget.Domain.Builds;
 using GitStatusWidget.Domain.ChangeRequests;
@@ -25,10 +26,17 @@ public sealed class DashboardProjector
     /// <param name="time">Time provider (its local time zone defines "today").</param>
     public DashboardProjector(TimeProvider time) => _time = time;
 
+    /// <summary>Period label of <see cref="DailyCountMode.CalendarDay"/>.</summary>
+    public const string TodayLabel = "today";
+
+    /// <summary>Period label of <see cref="DailyCountMode.Last24Hours"/>.</summary>
+    public const string Last24HoursLabel = "last 24 h";
+
     /// <summary>Projects a compact row.</summary>
     /// <param name="state">Runtime state.</param>
+    /// <param name="mode">Counting period of the closed/opened counters.</param>
     /// <returns>The row.</returns>
-    public CompactRowProjection ProjectRow(RepositoryRuntimeState state)
+    public CompactRowProjection ProjectRow(RepositoryRuntimeState state, DailyCountMode mode = DailyCountMode.CalendarDay)
     {
         ArgumentNullException.ThrowIfNull(state);
         var snapshot = state.Snapshot;
@@ -36,7 +44,7 @@ public sealed class DashboardProjector
         return new CompactRowProjection(
             Header(state),
             snapshot is not null,
-            Summary(snapshot, today),
+            Summary(snapshot, today, mode),
             snapshot is null ? null : CurrentMilestone(snapshot, state.Configuration.SelectedMilestoneId, today),
             snapshot is null ? null : LatestDefaultBranchBuild(snapshot),
             Health(state));
@@ -44,15 +52,16 @@ public sealed class DashboardProjector
 
     /// <summary>Projects the dashboard of a repository.</summary>
     /// <param name="state">Runtime state.</param>
+    /// <param name="mode">Counting period of the closed/opened counters.</param>
     /// <returns>The dashboard projection.</returns>
-    public DashboardProjection ProjectDashboard(RepositoryRuntimeState state)
+    public DashboardProjection ProjectDashboard(RepositoryRuntimeState state, DailyCountMode mode = DailyCountMode.CalendarDay)
     {
         ArgumentNullException.ThrowIfNull(state);
         var snapshot = state.Snapshot;
         var today = Today();
         if (snapshot is null)
         {
-            return new DashboardProjection(Header(state), false, Summary(null, today), null, [], [], [], [], [], [], Health(state));
+            return new DashboardProjection(Header(state), false, Summary(null, today, mode), null, [], [], [], [], [], [], Health(state));
         }
 
         var highlighted = new HashSet<string>(state.Configuration.HighlightedLabels, StringComparer.OrdinalIgnoreCase);
@@ -92,7 +101,7 @@ public sealed class DashboardProjector
         return new DashboardProjection(
             Header(state),
             true,
-            Summary(snapshot, today),
+            Summary(snapshot, today, mode),
             CurrentMilestone(snapshot, state.Configuration.SelectedMilestoneId, today),
             milestones,
             labels,
@@ -134,11 +143,18 @@ public sealed class DashboardProjector
     private bool IsToday(DateTimeOffset? instant, DateOnly today) =>
         instant is { } value && DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(value, _time.LocalTimeZone).DateTime) == today;
 
-    private SummaryProjection Summary(RepositorySnapshot? snapshot, DateOnly today)
+    private bool InPeriod(DateTimeOffset? instant, DateOnly today, DailyCountMode mode) => mode switch
     {
+        DailyCountMode.Last24Hours => instant is { } value && value > _time.GetUtcNow().AddHours(-24) && value <= _time.GetUtcNow(),
+        _ => IsToday(instant, today),
+    };
+
+    private SummaryProjection Summary(RepositorySnapshot? snapshot, DateOnly today, DailyCountMode mode)
+    {
+        var period = mode == DailyCountMode.Last24Hours ? Last24HoursLabel : TodayLabel;
         if (snapshot is null)
         {
-            return new SummaryProjection(0, 0, 0, 0, 0, 0, 0, "change requests");
+            return new SummaryProjection(0, 0, 0, 0, 0, 0, 0, "change requests", period);
         }
 
         var open = snapshot.Issues.Where(i => i.State == WorkItemState.Open).ToList();
@@ -146,12 +162,13 @@ public sealed class DashboardProjector
         return new SummaryProjection(
             snapshot.IssueCounts.Open,
             snapshot.IssueCounts.Closed,
-            snapshot.Issues.Count(i => i.State == WorkItemState.Closed && IsToday(i.ClosedAt, today)),
-            snapshot.Issues.Count(i => IsToday(i.CreatedAt, today)),
+            snapshot.Issues.Count(i => i.State == WorkItemState.Closed && InPeriod(i.ClosedAt, today, mode)),
+            snapshot.Issues.Count(i => InPeriod(i.CreatedAt, today, mode)),
             open.Count(i => i.Milestone is null),
             open.Count(i => i.Assignees.Count == 0),
             snapshot.ChangeRequests.Count(c => c.State == ChangeRequestState.Open),
-            label);
+            label,
+            period);
     }
 
     private static MilestoneProgressProjection Milestone(MilestoneSnapshot m, DateOnly today) =>

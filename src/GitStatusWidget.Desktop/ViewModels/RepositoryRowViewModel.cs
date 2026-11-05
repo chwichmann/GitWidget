@@ -39,6 +39,13 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
     [ObservableProperty]
     public partial int ClosedToday { get; set; }
 
+    /// <summary>Suffix after the closed-in-period count, e.g. " today" or " in 24 h" (issue #9).</summary>
+    [ObservableProperty]
+    public partial string PeriodSuffix { get; set; } = " today";
+
+    [ObservableProperty]
+    public partial string PeriodToolTip { get; set; } = "Issues closed today (since midnight)";
+
     [ObservableProperty]
     public partial bool HasMilestone { get; set; }
 
@@ -95,6 +102,9 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
         OpenIssues = row.Summary.OpenIssues;
         ClosedIssues = row.Summary.ClosedIssues;
         ClosedToday = row.Summary.ClosedToday;
+        var last24Hours = row.Summary.PeriodLabel == DashboardProjector.Last24HoursLabel;
+        PeriodSuffix = last24Hours ? " in 24 h" : " today";
+        PeriodToolTip = last24Hours ? "Issues closed in the last 24 hours" : "Issues closed today (since midnight)";
 
         var milestone = row.CurrentMilestone;
         HasMilestone = milestone is not null;

@@ -44,6 +44,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public IReadOnlyList<string> Themes { get; } = ["System", "Light", "Dark"];
 
+    public IReadOnlyList<DailyCountChoice> DailyCountModes { get; } =
+    [
+        new(DailyCountMode.CalendarDay, "Today (since midnight)"),
+        new(DailyCountMode.Last24Hours, "Last 24 hours"),
+    ];
+
     public string CredentialStoreName => _credentials.StoreName;
 
     public bool CredentialStoreAvailable => _credentials.IsAvailable && _credentialStatus.IsPersistent;
@@ -72,6 +78,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     public partial int RecentlyClosedDays { get; set; }
+
+    [ObservableProperty]
+    public partial DailyCountChoice? DailyCount { get; set; }
 
     [ObservableProperty]
     public partial bool CheckForUpdates { get; set; }
@@ -217,6 +226,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 ToastsEnabled = ToastsEnabled,
                 MinimumToastPriority = MinimumToastPriority,
                 RecentlyClosedWindow = TimeSpan.FromDays(Math.Clamp(RecentlyClosedDays, 1, 90)),
+                DailyCountMode = DailyCount?.Mode ?? DailyCountMode.CalendarDay,
                 CheckForUpdates = CheckForUpdates,
                 IncludePrereleaseUpdates = IncludePrereleaseUpdates,
                 Theme = Theme,
@@ -301,9 +311,16 @@ public sealed partial class SettingsViewModel : ObservableObject
         ToastsEnabled = settings.ToastsEnabled;
         MinimumToastPriority = settings.MinimumToastPriority;
         RecentlyClosedDays = (int)settings.RecentlyClosedWindow.TotalDays;
+        DailyCount = DailyCountModes.First(m => m.Mode == settings.DailyCountMode);
         CheckForUpdates = settings.CheckForUpdates;
         IncludePrereleaseUpdates = settings.IncludePrereleaseUpdates;
         Theme = settings.Theme;
         Selected = Repositories.FirstOrDefault();
     }
+}
+
+/// <summary>Choice of the counting period shown in Settings.</summary>
+public sealed record DailyCountChoice(DailyCountMode Mode, string Title)
+{
+    public override string ToString() => Title;
 }

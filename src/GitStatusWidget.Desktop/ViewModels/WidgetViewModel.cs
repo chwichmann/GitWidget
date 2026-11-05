@@ -34,6 +34,11 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         UpdateChecker? updates = null)
     {
         _settings = settings;
+        if (_settings is not null)
+        {
+            _settings.SettingsChanged += OnSettingsChanged;
+        }
+
         _updates = updates;
         if (_updates is not null)
         {
@@ -137,6 +142,11 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
             _updates.StateChanged -= OnUpdateStateChanged;
         }
 
+        if (_settings is not null)
+        {
+            _settings.SettingsChanged -= OnSettingsChanged;
+        }
+
         _freshnessTimer.Dispose();
     }
 
@@ -197,7 +207,7 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
 
     private void Apply(RepositoryRuntimeState state)
     {
-        var projection = _projector.ProjectRow(state);
+        var projection = _projector.ProjectRow(state, _controller.Settings.DailyCountMode);
         var row = Rows.FirstOrDefault(r => r.Id == state.Id);
         if (row is null)
         {
@@ -232,6 +242,13 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
 
     private void UpdateFreshness()
     {
+        // Re-project instead of only refreshing texts: "last 24 h" counters age out and "today" rolls over at
+        // midnight without any new event (issue #9).
+        foreach (var state in _hub.States)
+        {
+            Apply(state);
+        }
+
         var now = _time.GetUtcNow();
         foreach (var row in Rows)
         {
@@ -240,6 +257,8 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
 
         UpdateFooter();
     }
+
+    private void OnSettingsChanged(object? sender, Application.Settings.AppSettings settings) => _ui.Post(UpdateFreshness);
 
     private void UpdateFooter()
     {

@@ -2,6 +2,16 @@ using GitStatusWidget.Domain.Events;
 
 namespace GitStatusWidget.Application.Settings;
 
+/// <summary>What "today" means for the closed/opened counters (issue #9).</summary>
+public enum DailyCountMode
+{
+    /// <summary>Since local midnight (calendar day in the user's time zone).</summary>
+    CalendarDay = 0,
+
+    /// <summary>Rolling window of the last 24 hours.</summary>
+    Last24Hours = 1,
+}
+
 /// <summary>
 /// Application-wide user settings (persisted as <c>settings.json</c>). Contains no secrets.
 /// </summary>
@@ -30,6 +40,9 @@ public sealed record AppSettings
 
     /// <summary>Maximum number of repositories refreshed concurrently.</summary>
     public int MaxConcurrentRefreshes { get; init; } = 2;
+
+    /// <summary>Period of the "closed today" / "opened today" counters (issue #9).</summary>
+    public DailyCountMode DailyCountMode { get; init; } = DailyCountMode.CalendarDay;
 
     /// <summary>Check for newer GitWidget releases (issue #7).</summary>
     public bool CheckForUpdates { get; init; } = true;

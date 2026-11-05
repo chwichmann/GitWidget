@@ -83,8 +83,8 @@
                           <TextBlock><Run Text="{Binding ClosedIssues}" FontWeight="SemiBold" /><Run Text=" closed" /></TextBlock>
                         </StackPanel>
                       </Border>
-                      <TextBlock Classes="subtle" VerticalAlignment="Center" IsVisible="{Binding ClosedToday}">
-                        <Run Text="{Binding ClosedToday}" /><Run Text=" today" />
+                      <TextBlock Classes="subtle" VerticalAlignment="Center" IsVisible="{Binding ClosedToday}" ToolTip.Tip="{Binding PeriodToolTip}">
+                        <Run Text="{Binding ClosedToday}" /><Run Text="{Binding PeriodSuffix}" />
                       </TextBlock>
                     </StackPanel>
                     <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="subtle" Margin="0,4,0,0" IsVisible="{Binding !HasData}" Text="{Binding HealthText}" />

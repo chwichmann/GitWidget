@@ -83,10 +83,10 @@
               <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.ClosedIssues, FallbackValue=0}" Foreground="{DynamicResource SuccessBrush}" /><TextBlock Classes="subtle" Text="closed issues" /></StackPanel>
             </Border>
             <Border Classes="card" Margin="0,0,8,0">
-              <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.ClosedToday, FallbackValue=0}" /><TextBlock Classes="subtle" Text="closed today" /></StackPanel>
+              <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.ClosedToday, FallbackValue=0}" /><TextBlock Classes="subtle" Text="{Binding Projection.Summary.PeriodLabel, StringFormat='closed {0}', FallbackValue='closed today'}" /></StackPanel>
             </Border>
             <Border Classes="card" Margin="0,0,8,0">
-              <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.OpenedToday, FallbackValue=0}" /><TextBlock Classes="subtle" Text="opened today" /></StackPanel>
+              <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.OpenedToday, FallbackValue=0}" /><TextBlock Classes="subtle" Text="{Binding Projection.Summary.PeriodLabel, StringFormat='opened {0}', FallbackValue='opened today'}" /></StackPanel>
             </Border>
             <Border Classes="card" Margin="0,0,8,0">
               <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.OpenWithoutMilestone, FallbackValue=0}" /><TextBlock Classes="subtle" Text="no milestone" /></StackPanel>

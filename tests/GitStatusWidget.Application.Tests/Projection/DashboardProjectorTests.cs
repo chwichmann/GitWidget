@@ -61,6 +61,40 @@ public sealed class DashboardProjectorTests
     }
 
     [Fact]
+    public void Last_24_hours_counts_a_rolling_window_across_midnight()
+    {
+        // Now: 2026-11-04 23:30 UTC = 2026-11-05 00:30 Zurich.
+        var closedYesterdayLocal = Issue(1, WorkItemState.Closed, updatedAt: new DateTimeOffset(2026, 11, 4, 20, 0, 0, TimeSpan.Zero));
+        var closedTooLongAgo = Issue(2, WorkItemState.Closed, updatedAt: new DateTimeOffset(2026, 11, 3, 23, 0, 0, TimeSpan.Zero));
+        var openedTwoHoursAgo = Issue(3, createdAt: Now.AddHours(-2));
+        var state = new RepositoryRuntimeState(Config(), Snapshot(closedYesterdayLocal, closedTooLongAgo, openedTwoHoursAgo), RepositoryHealthState.Healthy);
+
+        var calendar = _projector.ProjectDashboard(state).Summary;
+        var rolling = _projector.ProjectDashboard(state, DailyCountMode.Last24Hours).Summary;
+
+        calendar.ClosedToday.Should().Be(0);
+        calendar.PeriodLabel.Should().Be("today");
+        rolling.ClosedToday.Should().Be(1);
+        rolling.OpenedToday.Should().Be(1);
+        rolling.PeriodLabel.Should().Be("last 24 h");
+    }
+
+    [Fact]
+    public void Daylight_saving_day_counts_calendar_day_and_rolling_window_correctly()
+    {
+        // 2026-10-25 has 25 hours in Zurich (CEST -> CET at 03:00). Now: 23:30 CET = 22:30 UTC.
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 10, 25, 22, 30, 0, TimeSpan.Zero));
+        time.SetLocalTimeZone(TimeZoneInfo.FindSystemTimeZoneById("Europe/Zurich"));
+        var projector = new DashboardProjector(time);
+        // 00:30 CEST local = 22:30 UTC the day before: same calendar day, but exactly 24 h ago.
+        var closed = Issue(1, WorkItemState.Closed, updatedAt: new DateTimeOffset(2026, 10, 24, 22, 30, 0, TimeSpan.Zero));
+        var state = new RepositoryRuntimeState(Config(), Snapshot(closed), RepositoryHealthState.Healthy);
+
+        projector.ProjectRow(state).Summary.ClosedToday.Should().Be(1);
+        projector.ProjectRow(state, DailyCountMode.Last24Hours).Summary.ClosedToday.Should().Be(0);
+    }
+
+    [Fact]
     public void Current_milestone_prefers_configured_then_nearest_due_date()
     {
         var snapshot = Snapshot(Issue(1)) with

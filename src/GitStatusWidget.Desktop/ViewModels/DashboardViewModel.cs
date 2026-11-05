@@ -44,6 +44,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     private readonly TimeProvider _time;
     private string? _signature;
     private readonly SettingsService? _settings;
+    private readonly ITimer _periodTimer;
     private bool _reordering;
 
     public DashboardViewModel(
@@ -57,6 +58,11 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         SettingsService? settings = null)
     {
         _settings = settings;
+        if (_settings is not null)
+        {
+            _settings.SettingsChanged += OnSettingsChanged;
+        }
+
         _hub = hub;
         _projector = projector;
         _controller = controller;
@@ -64,6 +70,8 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         _navigator = navigator;
         _feed = feed;
         _time = time;
+        // Counters for "today" / "last 24 h" change with time alone (issue #9).
+        _periodTimer = time.CreateTimer(_ => _ui.Post(Rebuild), null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60));
         _hub.StateChanged += OnStateChanged;
         _hub.RepositoryRemoved += OnRemoved;
         _feed.Items.CollectionChanged += OnFeedChanged;
@@ -181,7 +189,15 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         _hub.StateChanged -= OnStateChanged;
         _hub.RepositoryRemoved -= OnRemoved;
         _feed.Items.CollectionChanged -= OnFeedChanged;
+        if (_settings is not null)
+        {
+            _settings.SettingsChanged -= OnSettingsChanged;
+        }
+
+        _periodTimer.Dispose();
     }
+
+    private void OnSettingsChanged(object? sender, Application.Settings.AppSettings settings) => _ui.Post(Rebuild);
 
     partial void OnSelectedRepositoryChanged(RepositoryNavItem? value)
     {
@@ -270,7 +286,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var projection = _projector.ProjectDashboard(state);
+        var projection = _projector.ProjectDashboard(state, _controller.Settings.DailyCountMode);
         IsRefreshing = projection.Health.IsRefreshing;
         HasProblem = projection.Health.State is not (RepositoryHealthState.Healthy or RepositoryHealthState.Refreshing);
         FreshnessText = projection.Health.LastSuccessAt is { } success
