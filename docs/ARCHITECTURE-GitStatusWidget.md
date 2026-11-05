@@ -667,7 +667,7 @@ The compact widget is a single borderless window containing one row per enabled 
 - health/freshness indicator (not color-only: icon + tooltip text);
 - open issue count;
 - closed issue count and "closed today";
-- selected/current milestone progress bar;
+- one progress line per widget milestone (title, bar, `closed/total`, percentage): **automatic** (up to N = 1–5: nearest due dates, then the busiest open milestones, then milestones completed within the last 7 days) or **manual** (up to 5, user-defined order);
 - latest default-branch build state dot (hidden when the repository has no CI);
 - subtle pending refresh indicator.
 
@@ -792,6 +792,8 @@ Root folder: `Environment.SpecialFolder.LocalApplicationData` + `GitStatusWidget
 ### 19.1 Versioning
 
 Every persisted document contains a schema version. Readers must reject unsupported future versions and migrate known older versions explicitly.
+
+`settings.json` is at schema version 2: version 1 stored one optional `selectedMilestoneId`; the migration turns it into `milestoneMode = Manual` with that milestone, and no selection into `Automatic` with N = 1.
 
 ### 19.2 Snapshot retention
 

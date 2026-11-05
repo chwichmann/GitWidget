@@ -2,6 +2,16 @@ using GitStatusWidget.Domain.Repositories;
 
 namespace GitStatusWidget.Application.Settings;
 
+/// <summary>How the milestones shown in the compact widget are chosen (issue #12).</summary>
+public enum MilestoneSelectionMode
+{
+    /// <summary>Up to <see cref="RepositoryConfiguration.AutomaticMilestoneCount"/> milestones chosen by due date and activity.</summary>
+    Automatic = 0,
+
+    /// <summary>The milestones in <see cref="RepositoryConfiguration.SelectedMilestoneIds"/>, in that order.</summary>
+    Manual = 1,
+}
+
 /// <summary>
 /// User configuration of one monitored repository. Contains no secrets: the token lives in the OS
 /// credential store under <see cref="CredentialReference"/>.
@@ -61,8 +71,25 @@ public sealed record RepositoryConfiguration(
     /// <summary>Provider id of the repository, stored after the first successful connection.</summary>
     public string? ExternalId { get; init; }
 
-    /// <summary>Milestone shown in the compact widget; <see langword="null"/> selects the current one automatically.</summary>
-    public string? SelectedMilestoneId { get; init; }
+    /// <summary>Maximum number of milestones per repository in the compact widget.</summary>
+    public const int MaxWidgetMilestones = 5;
+
+    /// <summary>How the widget milestones are chosen.</summary>
+    public MilestoneSelectionMode MilestoneMode { get; init; } = MilestoneSelectionMode.Automatic;
+
+    /// <summary>Number of milestones shown in <see cref="MilestoneSelectionMode.Automatic"/> mode (1–5).</summary>
+    public int AutomaticMilestoneCount { get; init; } = 1;
+
+    /// <summary>Milestones shown in <see cref="MilestoneSelectionMode.Manual"/> mode, in display order (at most 5).</summary>
+    public IReadOnlyList<string> SelectedMilestoneIds { get; init; } = [];
+
+    /// <summary>Returns a copy with milestone settings clamped to their valid ranges.</summary>
+    /// <returns>The normalized configuration.</returns>
+    public RepositoryConfiguration Normalize() => this with
+    {
+        AutomaticMilestoneCount = Math.Clamp(AutomaticMilestoneCount, 1, MaxWidgetMilestones),
+        SelectedMilestoneIds = (SelectedMilestoneIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).Take(MaxWidgetMilestones).ToList(),
+    };
 
     /// <summary>Labels to highlight in the dashboard (empty: all labels).</summary>
     public IReadOnlyList<string> HighlightedLabels { get; init; } = [];

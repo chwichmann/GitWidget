@@ -45,7 +45,7 @@ public sealed class DashboardProjector
             Header(state),
             snapshot is not null,
             Summary(snapshot, today, mode),
-            snapshot is null ? null : CurrentMilestone(snapshot, state.Configuration.SelectedMilestoneId, today),
+            snapshot is null ? [] : WidgetMilestones(snapshot, state.Configuration, today, _time.GetUtcNow()),
             snapshot is null ? null : LatestDefaultBranchBuild(snapshot),
             Health(state));
     }
@@ -65,8 +65,10 @@ public sealed class DashboardProjector
         }
 
         var highlighted = new HashSet<string>(state.Configuration.HighlightedLabels, StringComparer.OrdinalIgnoreCase);
+        var widgetMilestones = WidgetMilestones(snapshot, state.Configuration, today, _time.GetUtcNow());
+        var inWidget = widgetMilestones.Select(m => m.ExternalId).ToHashSet(StringComparer.Ordinal);
         var milestones = snapshot.Milestones
-            .Select(m => Milestone(m, today))
+            .Select(m => Milestone(m, today) with { IsInWidget = inWidget.Contains(m.ExternalId) })
             .OrderBy(m => m.IsClosed)
             .ThenBy(m => m.DueDate ?? DateOnly.MaxValue)
             .ThenBy(m => m.Title, StringComparer.OrdinalIgnoreCase)
@@ -102,7 +104,7 @@ public sealed class DashboardProjector
             Header(state),
             true,
             Summary(snapshot, today, mode),
-            CurrentMilestone(snapshot, state.Configuration.SelectedMilestoneId, today),
+            widgetMilestones.Count > 0 ? widgetMilestones[0] : null,
             milestones,
             labels,
             recentlyChanged,
@@ -112,30 +114,60 @@ public sealed class DashboardProjector
             Health(state));
     }
 
-    /// <summary>Selects the milestone shown in the compact widget.</summary>
+    /// <summary>How long a completed milestone without due date stays in the automatic selection.</summary>
+    public static readonly TimeSpan RecentlyCompletedWindow = TimeSpan.FromDays(7);
+
+    /// <summary>Selects the milestones shown in the compact widget (issue #12).</summary>
     /// <remarks>
-    /// The configured milestone if it exists; otherwise the open milestone with the nearest due date that is not
-    /// in the past; otherwise the open milestone with the most open issues.
+    /// <para><b>Manual:</b> the configured milestones that exist in the snapshot, in the configured order.</para>
+    /// <para><b>Automatic (up to N):</b> open milestones with a due date today or later (nearest first, then more open
+    /// issues); then open milestones without due date or overdue that still have open issues (most open first, then
+    /// title); then recently completed milestones without due date (all issues closed, last one within
+    /// <see cref="RecentlyCompletedWindow"/>). Completed milestones with a future due date are part of the first group.
+    /// Closed milestones are never chosen automatically.</para>
     /// </remarks>
     /// <param name="snapshot">Snapshot.</param>
-    /// <param name="selectedMilestoneId">Configured milestone id.</param>
+    /// <param name="configuration">Repository configuration.</param>
     /// <param name="today">Today's local date.</param>
-    /// <returns>The milestone or <see langword="null"/>.</returns>
-    public static MilestoneProgressProjection? CurrentMilestone(RepositorySnapshot snapshot, string? selectedMilestoneId, DateOnly today)
+    /// <param name="now">Current time (UTC).</param>
+    /// <returns>The widget milestones in display order.</returns>
+    public static IReadOnlyList<MilestoneProgressProjection> WidgetMilestones(RepositorySnapshot snapshot, RepositoryConfiguration configuration, DateOnly today, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
-        var selected = selectedMilestoneId is null ? null : snapshot.Milestones.FirstOrDefault(m => m.ExternalId == selectedMilestoneId);
-        selected ??= snapshot.Milestones
-            .Where(m => !m.IsClosed && m.DueDate is { } due && due >= today)
+        ArgumentNullException.ThrowIfNull(configuration);
+        if (configuration.MilestoneMode == MilestoneSelectionMode.Manual)
+        {
+            var byId = snapshot.Milestones.ToDictionary(m => m.ExternalId, StringComparer.Ordinal);
+            return configuration.SelectedMilestoneIds
+                .Take(RepositoryConfiguration.MaxWidgetMilestones)
+                .Where(byId.ContainsKey)
+                .Select(id => Milestone(byId[id], today) with { IsInWidget = true })
+                .ToList();
+        }
+
+        var lastClosed = snapshot.Issues
+            .Where(i => i.State == WorkItemState.Closed && i.Milestone is not null)
+            .GroupBy(i => i.Milestone!.ExternalId, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Max(i => i.ClosedAt ?? i.UpdatedAt), StringComparer.Ordinal);
+        var open = snapshot.Milestones.Where(m => !m.IsClosed).ToList();
+        var upcoming = open
+            .Where(m => m.DueDate is { } due && due >= today)
             .OrderBy(m => m.DueDate)
             .ThenByDescending(m => m.OpenIssueCount)
-            .FirstOrDefault();
-        selected ??= snapshot.Milestones
-            .Where(m => !m.IsClosed && m.OpenIssueCount > 0)
+            .ThenBy(m => m.Title, StringComparer.OrdinalIgnoreCase);
+        var active = open
+            .Where(m => (m.DueDate is null || m.DueDate < today) && m.OpenIssueCount > 0)
             .OrderByDescending(m => m.OpenIssueCount)
-            .ThenBy(m => m.Title, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
-        return selected is null ? null : Milestone(selected, today);
+            .ThenBy(m => m.Title, StringComparer.OrdinalIgnoreCase);
+        var recentlyCompleted = open
+            .Where(m => m.DueDate is null && m.OpenIssueCount == 0 && m.ClosedIssueCount > 0
+                && lastClosed.TryGetValue(m.ExternalId, out var closedAt) && now - closedAt <= RecentlyCompletedWindow)
+            .OrderByDescending(m => lastClosed[m.ExternalId])
+            .ThenBy(m => m.Title, StringComparer.OrdinalIgnoreCase);
+        return upcoming.Concat(active).Concat(recentlyCompleted)
+            .Take(Math.Clamp(configuration.AutomaticMilestoneCount, 1, RepositoryConfiguration.MaxWidgetMilestones))
+            .Select(m => Milestone(m, today) with { IsInWidget = true })
+            .ToList();
     }
 
     private DateOnly Today() => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(_time.GetUtcNow(), _time.LocalTimeZone).DateTime);

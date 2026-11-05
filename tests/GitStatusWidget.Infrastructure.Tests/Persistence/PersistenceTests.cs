@@ -133,7 +133,7 @@ public sealed class PersistenceTests : IDisposable
 
         loaded.Should().BeEquivalentTo(settings);
         var text = await File.ReadAllTextAsync(_paths.SettingsFile);
-        text.Should().Contain("\"schemaVersion\": 1").And.Contain($"GitStatusWidget/{id:D}").And.NotContainAny("token\":", "PRIVATE-TOKEN", "Bearer");
+        text.Should().Contain("\"schemaVersion\": 2").And.Contain($"GitStatusWidget/{id:D}").And.NotContainAny("token\":", "PRIVATE-TOKEN", "Bearer");
     }
 
     [Fact]
@@ -151,11 +151,60 @@ public sealed class PersistenceTests : IDisposable
     {
         using var store = new JsonSettingsStore(_paths, NullLogger<JsonSettingsStore>.Instance);
         Directory.CreateDirectory(_paths.Root);
-        await File.WriteAllTextAsync(_paths.SettingsFile, "{\"schemaVersion\":2,\"data\":{}}");
+        await File.WriteAllTextAsync(_paths.SettingsFile, "{\"schemaVersion\":3,\"data\":{}}");
 
         var act = () => store.LoadAsync(CancellationToken.None);
 
         await act.Should().ThrowAsync<UnsupportedSchemaVersionException>();
+    }
+
+    [Fact]
+    public async Task Settings_version_1_are_migrated_without_losing_the_selected_milestone()
+    {
+        // Issue #12: selectedMilestoneId (v1) becomes manual mode with one milestone; no selection stays automatic (N = 1).
+        using var store = new JsonSettingsStore(_paths, NullLogger<JsonSettingsStore>.Instance);
+        Directory.CreateDirectory(_paths.Root);
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        await File.WriteAllTextAsync(_paths.SettingsFile, $$$"""
+            {"schemaVersion":1,"data":{"repositories":[
+              {"id":"{{{a}}}","provider":"GitLab","serverUri":"https://gitlab.example.com/","ownerPath":"group","repositoryName":"project",
+               "credentialReference":"GitStatusWidget/{{{a}}}","issuePollingInterval":"00:00:30","buildPollingInterval":"00:00:30",
+               "metadataPollingInterval":"00:05:00","reconciliationInterval":"00:15:00","isEnabled":true,"selectedMilestoneId":"42"},
+              {"id":"{{{b}}}","provider":"GitHub","serverUri":"https://github.com/","ownerPath":"octo","repositoryName":"widget",
+               "credentialReference":"GitStatusWidget/{{{b}}}","issuePollingInterval":"00:00:30","buildPollingInterval":"00:00:30",
+               "metadataPollingInterval":"00:05:00","reconciliationInterval":"00:15:00","isEnabled":true}
+            ],"alwaysOnTop":true}}
+            """);
+
+        var settings = await store.LoadAsync(CancellationToken.None);
+
+        settings.AlwaysOnTop.Should().BeTrue();
+        var gitlab = settings.Repositories.Single(r => r.Id == a);
+        gitlab.MilestoneMode.Should().Be(MilestoneSelectionMode.Manual);
+        gitlab.SelectedMilestoneIds.Should().Equal("42");
+        var github = settings.Repositories.Single(r => r.Id == b);
+        github.MilestoneMode.Should().Be(MilestoneSelectionMode.Automatic);
+        github.AutomaticMilestoneCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Milestone_counts_outside_the_range_are_clamped_when_loading()
+    {
+        using var store = new JsonSettingsStore(_paths, NullLogger<JsonSettingsStore>.Instance);
+        var id = Guid.NewGuid();
+        var configuration = new RepositoryConfiguration(id, RepositoryProviderKind.GitHub, new Uri("https://github.com/"), "octo", "widget",
+            RepositoryConfiguration.DefaultCredentialReference(id), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(15), true)
+        {
+            AutomaticMilestoneCount = 12,
+            SelectedMilestoneIds = ["1", "2", "3", "4", "5", "6"],
+        };
+        await store.SaveAsync(new AppSettings { Repositories = [configuration] }, CancellationToken.None);
+
+        var loaded = (await store.LoadAsync(CancellationToken.None)).Repositories.Single();
+
+        loaded.AutomaticMilestoneCount.Should().Be(5);
+        loaded.SelectedMilestoneIds.Should().HaveCount(5);
     }
 
     [Fact]

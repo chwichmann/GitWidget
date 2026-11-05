@@ -98,8 +98,30 @@
                   <StackPanel Spacing="8">
                     <TextBlock Classes="section" Text="Display" />
                     <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto">
-                      <TextBlock Text="Widget milestone" VerticalAlignment="Center" />
-                      <ComboBox Grid.Column="1" ItemsSource="{Binding MilestoneChoices}" SelectedItem="{Binding SelectedMilestone}" MinWidth="260" />
+                      <TextBlock Text="Widget milestones" VerticalAlignment="Top" Margin="0,6,0,0" />
+                      <StackPanel Grid.Column="1" Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <RadioButton GroupName="MilestoneMode" Content="Automatic, up to" IsChecked="{Binding IsAutomaticMilestones}" VerticalAlignment="Center" />
+                          <NumericUpDown Value="{Binding AutomaticMilestoneCount}" Minimum="1" Maximum="5" FormatString="0" Width="110"
+                                         IsEnabled="{Binding IsAutomaticMilestones}" />
+                          <RadioButton GroupName="MilestoneMode" Content="Manual" IsChecked="{Binding IsManualMilestones}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding IsAutomaticMilestones}"
+                                   Text="Nearest due dates first, then the busiest open milestones; just completed milestones stay visible for a while." />
+                        <ListBox x:Name="MilestoneList" ItemsSource="{Binding MilestoneOptions}" MaxHeight="190" IsVisible="{Binding IsManualMilestones}">
+                          <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MilestoneOption">
+                              <Grid ColumnDefinitions="Auto,*,Auto">
+                                <CheckBox IsChecked="{Binding IsSelected}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="2" Text="⋮⋮" Classes="subtle" VerticalAlignment="Center" Margin="8,0,0,0" ToolTip.Tip="Drag to reorder" />
+                              </Grid>
+                            </DataTemplate>
+                          </ListBox.ItemTemplate>
+                        </ListBox>
+                        <TextBlock Classes="caption" IsVisible="{Binding IsManualMilestones}" TextWrapping="Wrap"
+                                   Text="Check up to 5 milestones; drag to change their order in the widget." />
+                      </StackPanel>
                       <TextBlock Grid.Row="1" Text="Highlighted labels" VerticalAlignment="Center" Margin="0,8,0,0" />
                       <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding HighlightedLabels}" PlaceholderText="e.g. Bug, Finding, Security" Margin="0,8,0,0" />
                     </Grid>

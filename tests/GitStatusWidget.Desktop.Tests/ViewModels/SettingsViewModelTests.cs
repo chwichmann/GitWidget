@@ -47,7 +47,7 @@ public sealed class SettingsViewModelTests
     [Fact]
     public void Milestone_choices_come_from_the_hub_snapshot_and_exclude_closed_milestones()
     {
-        var configuration = Data.Config() with { SelectedMilestoneId = "M2" };
+        var configuration = Data.Config() with { MilestoneMode = GitStatusWidget.Application.Settings.MilestoneSelectionMode.Manual, SelectedMilestoneIds = ["M2"] };
         _hub.Publish(Data.State(configuration, Data.Snapshot(configuration, milestones:
         [
             Data.Milestone("M1", 1, 1),
@@ -57,8 +57,8 @@ public sealed class SettingsViewModelTests
 
         var editor = Create(configuration).Repositories.Single();
 
-        editor.MilestoneChoices.Select(m => m.Id).Should().Equal(null, "M1", "M2");
-        editor.SelectedMilestone!.Id.Should().Be("M2");
+        editor.MilestoneOptions.Select(m => m.Id).Should().Equal("M2", "M1");
+        editor.MilestoneOptions.Single(m => m.IsSelected).Id.Should().Be("M2");
     }
 
     [Fact]

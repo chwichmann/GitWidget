@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using GitStatusWidget.Application.Projection;
@@ -49,17 +50,12 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
     [ObservableProperty]
     public partial bool HasMilestone { get; set; }
 
-    [ObservableProperty]
-    public partial string MilestoneTitle { get; set; } = string.Empty;
+    /// <summary>Milestones shown in the widget, one line each (issue #12); updated in place.</summary>
+    public ObservableCollection<MilestoneLineViewModel> Milestones { get; } = [];
 
-    [ObservableProperty]
-    public partial double MilestonePercent { get; set; }
 
-    [ObservableProperty]
-    public partial string MilestoneText { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial bool MilestoneOverdue { get; set; }
+
 
     [ObservableProperty]
     public partial bool HasBuild { get; set; }
@@ -110,14 +106,7 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
         PeriodSuffix = last24Hours ? " in 24 h" : " today";
         PeriodToolTip = last24Hours ? "Issues closed in the last 24 hours" : "Issues closed today (since midnight)";
 
-        var milestone = row.CurrentMilestone;
-        HasMilestone = milestone is not null;
-        MilestoneTitle = milestone?.Title ?? string.Empty;
-        MilestonePercent = milestone is null ? 0 : Math.Round(milestone.Completion * 100, 1);
-        MilestoneText = milestone is null
-            ? string.Empty
-            : string.Create(CultureInfo.CurrentCulture, $"{milestone.ClosedIssues}/{milestone.TotalIssues} · {Format.Percent(milestone.CompletionPercent)}");
-        MilestoneOverdue = milestone?.IsOverdue ?? false;
+        UpdateMilestones(row.Milestones);
 
         HasBuild = row.LatestBuild is not null;
         BuildState = row.LatestBuild?.State ?? BuildState.Unknown;
@@ -134,6 +123,34 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
         OnPropertyChanged(nameof(ToolTipText));
     }
 
+    private void UpdateMilestones(IReadOnlyList<MilestoneProgressProjection> milestones)
+    {
+        // Same algorithm as the rows: update matching lines in place, add new ones, move to order, remove the rest.
+        for (var index = 0; index < milestones.Count; index++)
+        {
+            var projection = milestones[index];
+            var line = Milestones.FirstOrDefault(m => m.ExternalId == projection.ExternalId);
+            if (line is null)
+            {
+                line = new MilestoneLineViewModel(projection.ExternalId);
+                Milestones.Insert(Math.Min(index, Milestones.Count), line);
+            }
+            else if (Milestones.IndexOf(line) != index)
+            {
+                Milestones.Move(Milestones.IndexOf(line), index);
+            }
+
+            line.Update(projection);
+        }
+
+        while (Milestones.Count > milestones.Count)
+        {
+            Milestones.RemoveAt(Milestones.Count - 1);
+        }
+
+        HasMilestone = Milestones.Count > 0;
+    }
+
     public void UpdateFreshness(DateTimeOffset now) => FreshnessText = Format.Age(LastSuccessAt, now);
 
     public void Animate(RowAnimation animation) => AnimationRequested?.Invoke(this, animation);
@@ -148,6 +165,35 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
         BuildState.Skipped => "skipped",
         _ => "unknown",
     };
+}
+
+/// <summary>One milestone line in a widget row (issue #12).</summary>
+public sealed partial class MilestoneLineViewModel : ObservableObject
+{
+    public MilestoneLineViewModel(string externalId) => ExternalId = externalId;
+
+    public string ExternalId { get; }
+
+    [ObservableProperty]
+    public partial string Title { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial double Percent { get; set; }
+
+    [ObservableProperty]
+    public partial string Text { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsOverdue { get; set; }
+
+    public void Update(MilestoneProgressProjection milestone)
+    {
+        ArgumentNullException.ThrowIfNull(milestone);
+        Title = milestone.Title;
+        Percent = Math.Round(milestone.Completion * 100, 1);
+        Text = string.Create(CultureInfo.CurrentCulture, $"{milestone.ClosedIssues}/{milestone.TotalIssues} · {Format.Percent(milestone.CompletionPercent)}");
+        IsOverdue = milestone.IsOverdue;
+    }
 }
 
 /// <summary>Formatting helpers for relative times and percentages.</summary>

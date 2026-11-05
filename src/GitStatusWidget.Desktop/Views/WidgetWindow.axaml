@@ -94,13 +94,19 @@
                                IsVisible="{Binding ShowProblemLine}" Text="{Binding HealthText}"
                                Foreground="{Binding Health, Converter={x:Static c:SemanticBrushConverter.Instance}}" />
 
-                    <!-- Line 3: milestone -->
-                    <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,4,0,0" IsVisible="{Binding HasMilestone}">
-                      <TextBlock Classes="caption" Text="{Binding MilestoneTitle}" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="1" Classes="caption" Text="{Binding MilestoneText}" Margin="8,0,0,0" />
-                      <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Classes="milestone" Classes.overdue="{Binding MilestoneOverdue}"
-                                   Minimum="0" Maximum="100" Value="{Binding MilestonePercent}" Margin="0,3,0,0" />
-                    </Grid>
+                    <!-- Line 3: one line per widget milestone (issue #12) -->
+                    <ItemsControl Grid.Row="2" Grid.ColumnSpan="2" ItemsSource="{Binding Milestones}" IsVisible="{Binding HasMilestone}" Margin="0,2,0,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MilestoneLineViewModel">
+                          <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,2,0,0">
+                            <TextBlock Classes="caption" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="1" Classes="caption" Text="{Binding Text}" Margin="8,0,0,0" />
+                            <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Classes="milestone" Classes.overdue="{Binding IsOverdue}"
+                                         Minimum="0" Maximum="100" Value="{Binding Percent}" Margin="0,3,0,0" />
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                   </Grid>
                 </Border>
               </DataTemplate>

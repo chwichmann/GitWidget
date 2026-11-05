@@ -29,6 +29,9 @@ public sealed record MilestoneProgressProjection(
     /// <summary>Total issues.</summary>
     public int TotalIssues => OpenIssues + ClosedIssues;
 
+    /// <summary>Shown in the compact widget (marked in the dashboard, issue #12).</summary>
+    public bool IsInWidget { get; init; }
+
     /// <summary>Completion in [0, 1]; 0 without issues.</summary>
     public double Completion => TotalIssues == 0 ? 0 : (double)ClosedIssues / TotalIssues;
 
@@ -141,23 +144,27 @@ public sealed record SummaryProjection(
 /// <param name="Header">Header.</param>
 /// <param name="HasData">A snapshot exists.</param>
 /// <param name="Summary">Summary numbers (zero when no data).</param>
-/// <param name="CurrentMilestone">Selected or current milestone.</param>
+/// <param name="Milestones">Milestones shown in the widget, in display order (issue #12).</param>
 /// <param name="LatestBuild">Latest default-branch build, or <see langword="null"/> when the repository has no CI data.</param>
 /// <param name="Health">Health.</param>
 public sealed record CompactRowProjection(
     RepositoryHeaderProjection Header,
     bool HasData,
     SummaryProjection Summary,
-    MilestoneProgressProjection? CurrentMilestone,
+    IReadOnlyList<MilestoneProgressProjection> Milestones,
     BuildProjection? LatestBuild,
-    RepositoryHealthProjection Health);
+    RepositoryHealthProjection Health)
+{
+    /// <summary>First widget milestone, if any.</summary>
+    public MilestoneProgressProjection? CurrentMilestone => Milestones.Count > 0 ? Milestones[0] : null;
+}
 
 /// <summary>Expanded dashboard of one repository (architecture §15).</summary>
 /// <param name="Header">Header.</param>
 /// <param name="HasData">A snapshot exists.</param>
 /// <param name="Summary">Summary numbers.</param>
-/// <param name="CurrentMilestone">Selected or current milestone.</param>
-/// <param name="Milestones">Milestones (open first, by due date).</param>
+/// <param name="CurrentMilestone">First widget milestone.</param>
+/// <param name="Milestones">Milestones (open first, by due date); widget milestones have <see cref="MilestoneProgressProjection.IsInWidget"/>.</param>
 /// <param name="Labels">Label counts (highlighted first, then by open count).</param>
 /// <param name="RecentlyChanged">Recently updated issues.</param>
 /// <param name="RecentlyClosed">Recently closed issues.</param>

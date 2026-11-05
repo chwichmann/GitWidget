@@ -52,4 +52,8 @@ public sealed record AppSettings
 
     /// <summary>Theme: <c>System</c>, <c>Light</c> or <c>Dark</c>.</summary>
     public string Theme { get; init; } = "System";
+
+    /// <summary>Returns a copy with all values clamped to their valid ranges (applied when loading).</summary>
+    /// <returns>The normalized settings.</returns>
+    public AppSettings Normalize() => this with { Repositories = Repositories.Select(r => r.Normalize()).ToList() };
 }

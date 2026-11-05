@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using GitStatusWidget.Application.Persistence;
 using GitStatusWidget.Application.Settings;
 using Microsoft.Extensions.Logging;
@@ -10,7 +12,9 @@ namespace GitStatusWidget.Infrastructure.Persistence;
 public sealed class JsonSettingsStore : ISettingsStore, IDisposable
 {
     /// <summary>Current schema version of the settings document.</summary>
-    public const int SchemaVersion = 1;
+    /// <remarks>Version 2 (issue #12): <c>selectedMilestoneId</c> replaced by <c>milestoneMode</c>,
+    /// <c>automaticMilestoneCount</c> and <c>selectedMilestoneIds</c>.</remarks>
+    public const int SchemaVersion = 2;
 
     private readonly AppPaths _paths;
     private readonly ILogger<JsonSettingsStore> _logger;
@@ -31,10 +35,10 @@ public sealed class JsonSettingsStore : ISettingsStore, IDisposable
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var (status, settings) = await VersionedJsonFile.ReadAsync<AppSettings>(_paths.SettingsFile, SchemaVersion, null, _logger, cancellationToken).ConfigureAwait(false);
+            var (status, settings) = await VersionedJsonFile.ReadAsync<AppSettings>(_paths.SettingsFile, SchemaVersion, Migrate, _logger, cancellationToken).ConfigureAwait(false);
             return status switch
             {
-                VersionedJsonFile.ReadStatus.Ok => settings!,
+                VersionedJsonFile.ReadStatus.Ok => settings!.Normalize(),
                 VersionedJsonFile.ReadStatus.FutureVersion => throw new UnsupportedSchemaVersionException(
                     $"{_paths.SettingsFile} was written by a newer GitWidget version. Update GitWidget or move the file away."),
                 _ => new AppSettings(),
@@ -63,4 +67,36 @@ public sealed class JsonSettingsStore : ISettingsStore, IDisposable
 
     /// <inheritdoc />
     public void Dispose() => _gate.Dispose();
+
+    /// <summary>Explicit migrations of older settings documents (architecture §19.1).</summary>
+    /// <param name="fromVersion">Version of <paramref name="data"/>.</param>
+    /// <param name="data">The <c>data</c> node of the document.</param>
+    /// <returns>The migrated node (version <paramref name="fromVersion"/> + 1).</returns>
+    internal static JsonNode Migrate(int fromVersion, JsonNode data)
+    {
+        if (fromVersion == 1)
+        {
+            // v1 -> v2: one optional selected milestone becomes the manual mode with one milestone; no selection stays
+            // automatic with one milestone (unchanged widget).
+            foreach (var repository in data["repositories"]?.AsArray().OfType<JsonObject>() ?? [])
+            {
+                var selected = repository["selectedMilestoneId"]?.GetValue<string>();
+                repository.Remove("selectedMilestoneId");
+                if (!string.IsNullOrWhiteSpace(selected))
+                {
+                    repository["milestoneMode"] = "Manual";
+                    repository["selectedMilestoneIds"] = new JsonArray(selected);
+                }
+                else
+                {
+                    repository["milestoneMode"] = "Automatic";
+                    repository["automaticMilestoneCount"] = 1;
+                }
+            }
+
+            return data;
+        }
+
+        throw new JsonException($"No migration from settings schema version {fromVersion}.");
+    }
 }

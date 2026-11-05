@@ -127,10 +127,11 @@ public sealed class WidgetViewModelTests : IDisposable
         row.ClosedIssues.Should().Be(2);
         row.ClosedToday.Should().Be(1);
         row.HasMilestone.Should().BeTrue();
-        row.MilestoneTitle.Should().Be("Milestone M1");
-        row.MilestonePercent.Should().Be(75);
-        row.MilestoneText.Should().Be($"3/4 · {(0.75).ToString("P0", System.Globalization.CultureInfo.CurrentCulture)}");
-        row.MilestoneOverdue.Should().BeFalse();
+        var line = row.Milestones.Single();
+        line.Title.Should().Be("Milestone M1");
+        line.Percent.Should().Be(75);
+        line.Text.Should().Be($"3/4 · {(0.75).ToString("P0", System.Globalization.CultureInfo.CurrentCulture)}");
+        line.IsOverdue.Should().BeFalse();
         row.HasBuild.Should().BeTrue();
         row.BuildState.Should().Be(BuildState.Failed);
         row.BuildText.Should().Be("CI: failed");

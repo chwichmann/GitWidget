@@ -27,7 +27,7 @@ public sealed class MilestonePercentTests
         using var dashboard = new DashboardViewModel(hub, new DashboardProjector(time), new FakeSynchronizationController(), ui, new FakeNavigator(), new GitStatusWidget.Desktop.Services.ActivityFeed(hub, ui), time);
 
         var expected = (0.99).ToString("P0", CultureInfo.CurrentCulture);
-        widget.Rows.Single().MilestoneText.Should().Be($"602/605 · {expected}");
+        widget.Rows.Single().Milestones.Single().Text.Should().Be($"602/605 · {expected}");
         var suffix = CompletionSuffixConverter.Instance.Convert(dashboard.Projection!.Milestones.Single().CompletionPercent, typeof(string), null, CultureInfo.CurrentCulture);
         suffix.Should().Be($" · {expected}");
     }

@@ -6,10 +6,34 @@ using GitStatusWidget.Domain.Repositories;
 
 namespace GitStatusWidget.Desktop.ViewModels;
 
-/// <summary>Milestone choice in the editor.</summary>
-public sealed record MilestoneChoice(string? Id, string Title)
+/// <summary>A milestone known for the repository (from the current snapshot).</summary>
+public sealed record MilestoneChoice(string Id, string Title, bool IsClosed = false)
 {
     public override string ToString() => Title;
+}
+
+/// <summary>One entry of the manual milestone list in the editor (issue #12).</summary>
+public sealed partial class MilestoneOption : ObservableObject
+{
+    public MilestoneOption(string id, string title, string? status, bool isSelected)
+    {
+        Id = id;
+        Title = title;
+        Status = status;
+        IsSelected = isSelected;
+    }
+
+    public string Id { get; }
+
+    public string Title { get; }
+
+    /// <summary>"(closed)" or "(not loaded)" for configured milestones that are not open in the snapshot.</summary>
+    public string? Status { get; }
+
+    public string Label => Status is null ? Title : $"{Title} {Status}";
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
 }
 
 /// <summary>Editable form of one repository configuration. Never holds a stored token.</summary>
@@ -36,7 +60,10 @@ public sealed partial class RepositoryEditorViewModel : ObservableObject
         BuildIntervalSeconds = (int)(configuration?.BuildPollingInterval ?? RepositoryConfiguration.DefaultBuildInterval).TotalSeconds;
         MetadataIntervalMinutes = (int)(configuration?.MetadataPollingInterval ?? RepositoryConfiguration.DefaultMetadataInterval).TotalMinutes;
         HighlightedLabels = string.Join(", ", configuration?.HighlightedLabels ?? []);
-        SelectedMilestoneId = configuration?.SelectedMilestoneId;
+        _configuredMilestoneIds = configuration?.SelectedMilestoneIds ?? [];
+        MilestoneMode = configuration?.MilestoneMode ?? MilestoneSelectionMode.Automatic;
+        AutomaticMilestoneCount = Math.Clamp(configuration?.AutomaticMilestoneCount ?? 1, 1, RepositoryConfiguration.MaxWidgetMilestones);
+        SetMilestones([]);
         HasStoredToken = hasStoredToken;
     }
 
@@ -103,14 +130,44 @@ public sealed partial class RepositoryEditorViewModel : ObservableObject
     [ObservableProperty]
     public partial string HighlightedLabels { get; set; }
 
-    [ObservableProperty]
-    public partial string? SelectedMilestoneId { get; set; }
+    private readonly IReadOnlyList<string> _configuredMilestoneIds;
 
+    /// <summary>How the widget milestones are chosen (issue #12).</summary>
     [ObservableProperty]
-    public partial IReadOnlyList<MilestoneChoice> MilestoneChoices { get; set; } = [new(null, "Automatic (nearest due date)")];
+    public partial MilestoneSelectionMode MilestoneMode { get; set; }
 
+    /// <summary>Number of milestones in automatic mode (1–5).</summary>
     [ObservableProperty]
-    public partial MilestoneChoice? SelectedMilestone { get; set; }
+    public partial int AutomaticMilestoneCount { get; set; }
+
+    /// <summary>Milestones for the manual selection; checked ones are shown, in list order.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<MilestoneOption> MilestoneOptions { get; } = [];
+
+    public bool IsAutomaticMilestones
+    {
+        get => MilestoneMode == MilestoneSelectionMode.Automatic;
+        set
+        {
+            if (value)
+            {
+                MilestoneMode = MilestoneSelectionMode.Automatic;
+            }
+        }
+    }
+
+    public bool IsManualMilestones
+    {
+        get => MilestoneMode == MilestoneSelectionMode.Manual;
+        set
+        {
+            if (value)
+            {
+                MilestoneMode = MilestoneSelectionMode.Manual;
+            }
+        }
+    }
+
+    public bool HasMilestoneOptions => MilestoneOptions.Count > 0;
 
     [ObservableProperty]
     public partial string? ValidationMessage { get; set; }
@@ -134,17 +191,45 @@ public sealed partial class RepositoryEditorViewModel : ObservableObject
 
     public string TokenStatus => HasStoredToken ? "A token is stored securely. Leave empty to keep it." : "No token stored yet.";
 
+    /// <summary>
+    /// Fills the manual list: configured milestones first in their order (marked when closed or not loaded), then the
+    /// other open milestones. Configured milestones are never dropped (issue #12).
+    /// </summary>
     public void SetMilestones(IEnumerable<MilestoneChoice> milestones)
     {
-        List<MilestoneChoice> choices = [new MilestoneChoice(null, "Automatic (nearest due date)"), .. milestones];
-        if (SelectedMilestoneId is { } selected && choices.All(m => m.Id != selected))
+        ArgumentNullException.ThrowIfNull(milestones);
+        var known = milestones.GroupBy(m => m.Id, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        var selected = MilestoneOptions.Count > 0
+            ? MilestoneOptions.Where(o => o.IsSelected).Select(o => o.Id).ToList()
+            : _configuredMilestoneIds.ToList();
+        MilestoneOptions.Clear();
+        foreach (var id in selected)
         {
-            // Closed or not loaded yet (no snapshot, disabled repository): keep the configured milestone.
-            choices.Add(new MilestoneChoice(selected, "Configured milestone (not loaded)"));
+            var status = known.TryGetValue(id, out var milestone) ? (milestone.IsClosed ? "(closed)" : null) : "(not loaded)";
+            MilestoneOptions.Add(new MilestoneOption(id, milestone?.Title ?? "Configured milestone", status, isSelected: true));
         }
 
-        MilestoneChoices = choices;
-        SelectedMilestone = choices.First(m => m.Id == SelectedMilestoneId);
+        foreach (var milestone in known.Values.Where(m => !m.IsClosed && !selected.Contains(m.Id, StringComparer.Ordinal)))
+        {
+            MilestoneOptions.Add(new MilestoneOption(milestone.Id, milestone.Title, null, isSelected: false));
+        }
+
+        OnPropertyChanged(nameof(HasMilestoneOptions));
+    }
+
+    /// <summary>Moves a milestone in the manual list (drag &amp; drop).</summary>
+    public void MoveMilestone(int from, int to)
+    {
+        if (from >= 0 && from < MilestoneOptions.Count && to >= 0 && to < MilestoneOptions.Count && from != to)
+        {
+            MilestoneOptions.Move(from, to);
+        }
+    }
+
+    partial void OnMilestoneModeChanged(MilestoneSelectionMode value)
+    {
+        OnPropertyChanged(nameof(IsAutomaticMilestones));
+        OnPropertyChanged(nameof(IsManualMilestones));
     }
 
     /// <summary>Validates the form and builds the configuration, or returns <see langword="null"/> with <see cref="ValidationMessage"/> set.</summary>
@@ -176,7 +261,9 @@ public sealed partial class RepositoryEditorViewModel : ObservableObject
             UserAgent = string.IsNullOrWhiteSpace(UserAgent) ? null : UserAgent.Trim(),
             AllowInsecureHttp = AllowInsecureHttp,
             ExternalId = identityChanged ? null : Original?.ExternalId,
-            SelectedMilestoneId = identityChanged ? null : SelectedMilestone?.Id,
+            MilestoneMode = MilestoneMode,
+            AutomaticMilestoneCount = Math.Clamp(AutomaticMilestoneCount, 1, RepositoryConfiguration.MaxWidgetMilestones),
+            SelectedMilestoneIds = identityChanged ? [] : MilestoneOptions.Where(o => o.IsSelected).Select(o => o.Id).ToList(),
             HighlightedLabels = labels,
             SortOrder = sortOrder,
         };
@@ -262,6 +349,17 @@ public sealed partial class RepositoryEditorViewModel : ObservableObject
         if (IsNew && !HasStoredToken && string.IsNullOrWhiteSpace(NewToken))
         {
             return "Enter an access token.";
+        }
+
+        var selectedMilestones = MilestoneOptions.Count(o => o.IsSelected);
+        if (MilestoneMode == MilestoneSelectionMode.Manual && selectedMilestones > RepositoryConfiguration.MaxWidgetMilestones)
+        {
+            return string.Create(CultureInfo.CurrentCulture, $"Select at most {RepositoryConfiguration.MaxWidgetMilestones} widget milestones.");
+        }
+
+        if (MilestoneMode == MilestoneSelectionMode.Manual && selectedMilestones == 0 && MilestoneOptions.Count > 0)
+        {
+            return "Select at least one widget milestone, or choose Automatic.";
         }
 
         if (IssueIntervalSeconds < 15 || BuildIntervalSeconds < 15)

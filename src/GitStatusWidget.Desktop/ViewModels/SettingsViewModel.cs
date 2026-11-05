@@ -307,8 +307,8 @@ public sealed partial class SettingsViewModel : ObservableObject
             {
                 GatewayBlocked = _hub.Find(configuration.Id)?.Health == Domain.Health.RepositoryHealthState.GatewayBlocked,
             };
-            var milestones = _hub.Find(configuration.Id)?.Snapshot?.Milestones.Where(m => !m.IsClosed)
-                .Select(m => new MilestoneChoice(m.ExternalId, m.Title)) ?? [];
+            var milestones = _hub.Find(configuration.Id)?.Snapshot?.Milestones
+                .Select(m => new MilestoneChoice(m.ExternalId, m.Title, m.IsClosed)) ?? [];
             editor.SetMilestones(milestones);
             Repositories.Add(editor);
         }

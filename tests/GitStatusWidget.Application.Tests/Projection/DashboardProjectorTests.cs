@@ -34,7 +34,8 @@ public sealed class DashboardProjectorTests
         return new RepositoryConfiguration(id, RepositoryProviderKind.GitLab, new Uri("https://gitlab.example.com/"), "group", "project",
             "ref", TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(15), true)
         {
-            SelectedMilestoneId = selectedMilestone,
+            MilestoneMode = selectedMilestone is null ? MilestoneSelectionMode.Automatic : MilestoneSelectionMode.Manual,
+            SelectedMilestoneIds = selectedMilestone is null ? [] : [selectedMilestone],
             HighlightedLabels = highlighted,
         };
     }

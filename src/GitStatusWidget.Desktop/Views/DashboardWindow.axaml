@@ -110,6 +110,7 @@
                       <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,0,0,10">
                         <TextBlock TextTrimming="CharacterEllipsis">
                           <Run Text="{Binding Title}" FontWeight="SemiBold" />
+                          <Run Text="{Binding IsInWidget, Converter={x:Static c:InWidgetConverter.Instance}, Mode=OneWay}" Foreground="{DynamicResource InfoBrush}" FontSize="11" />
                           <Run Text="{Binding DueDate, Converter={x:Static c:LocalTimeConverter.Instance}, StringFormat=' · due {0}', Mode=OneWay}" />
                         </TextBlock>
                         <TextBlock Grid.Column="1" Classes="subtle" Margin="8,0,0,0">

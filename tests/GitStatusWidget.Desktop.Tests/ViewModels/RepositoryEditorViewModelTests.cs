@@ -218,7 +218,9 @@ public sealed class RepositoryEditorViewModelTests
         configuration.ReconciliationInterval.Should().Be(RepositoryConfiguration.DefaultReconciliationInterval);
         configuration.IsEnabled.Should().BeFalse();
         configuration.ExternalId.Should().BeNull();
-        configuration.SelectedMilestoneId.Should().BeNull();
+        configuration.MilestoneMode.Should().Be(MilestoneSelectionMode.Automatic);
+        configuration.AutomaticMilestoneCount.Should().Be(1);
+        configuration.SelectedMilestoneIds.Should().BeEmpty();
     }
 
     [Fact]
@@ -240,44 +242,62 @@ public sealed class RepositoryEditorViewModelTests
         {
             CredentialReference = "custom/reference",
             ExternalId = "R_42",
-            SelectedMilestoneId = "M1",
+            MilestoneMode = MilestoneSelectionMode.Manual,
+            SelectedMilestoneIds = ["M1"],
             ReconciliationInterval = TimeSpan.FromMinutes(42),
         };
         var editor = new RepositoryEditorViewModel(original, hasStoredToken: true);
         editor.SetMilestones([new MilestoneChoice("M1", "Milestone 1"), new MilestoneChoice("M2", "Milestone 2")]);
-        editor.SelectedMilestone.Should().Be(new MilestoneChoice("M1", "Milestone 1"));
+        editor.MilestoneOptions.Single(o => o.IsSelected).Id.Should().Be("M1");
 
         var configuration = editor.TryBuild(1);
 
         configuration!.CredentialReference.Should().Be("custom/reference");
         configuration.ExternalId.Should().Be("R_42");
-        configuration.SelectedMilestoneId.Should().Be("M1");
+        configuration.MilestoneMode.Should().Be(MilestoneSelectionMode.Manual);
+        configuration.SelectedMilestoneIds.Should().Equal("M1");
         configuration.ReconciliationInterval.Should().Be(TimeSpan.FromMinutes(42));
         configuration.SortOrder.Should().Be(1);
     }
 
     [Fact]
-    public void Changing_the_milestone_selection_is_saved()
+    public void Changing_the_milestone_selection_is_saved_in_list_order()
     {
-        var editor = new RepositoryEditorViewModel(Data.Config() with { SelectedMilestoneId = "M1" }, hasStoredToken: true);
-        editor.SetMilestones([new MilestoneChoice("M1", "Milestone 1"), new MilestoneChoice("M2", "Milestone 2")]);
+        var editor = new RepositoryEditorViewModel(Data.Config() with { MilestoneMode = MilestoneSelectionMode.Manual, SelectedMilestoneIds = ["M1"] }, hasStoredToken: true);
+        editor.SetMilestones([new MilestoneChoice("M1", "Milestone 1"), new MilestoneChoice("M2", "Milestone 2"), new MilestoneChoice("M3", "Milestone 3")]);
 
-        editor.SelectedMilestone = editor.MilestoneChoices.Single(m => m.Id == "M2");
+        editor.MilestoneOptions.Single(o => o.Id == "M3").IsSelected = true;
+        editor.MoveMilestone(2, 0);
 
-        editor.TryBuild(0)!.SelectedMilestoneId.Should().Be("M2");
+        editor.TryBuild(0)!.SelectedMilestoneIds.Should().Equal("M3", "M1");
     }
 
     [Fact]
-    public void Milestone_choices_always_start_with_automatic()
+    public void Manual_list_shows_configured_milestones_first_and_only_open_others()
     {
-        var editor = new RepositoryEditorViewModel(Data.Config(), hasStoredToken: true);
+        var editor = new RepositoryEditorViewModel(Data.Config() with { MilestoneMode = MilestoneSelectionMode.Manual, SelectedMilestoneIds = ["M9", "M2"] }, hasStoredToken: true);
 
-        editor.SetMilestones([new MilestoneChoice("M1", "Milestone 1")]);
+        editor.SetMilestones([new MilestoneChoice("M1", "Milestone 1"), new MilestoneChoice("M2", "Milestone 2", IsClosed: true), new MilestoneChoice("M3", "Old", IsClosed: true)]);
 
-        editor.MilestoneChoices.Should().HaveCount(2);
-        editor.MilestoneChoices[0].Id.Should().BeNull();
-        editor.SelectedMilestone.Should().BeSameAs(editor.MilestoneChoices[0]);
-        editor.MilestoneChoices[1].ToString().Should().Be("Milestone 1");
+        editor.MilestoneOptions.Select(o => o.Label).Should().Equal("Configured milestone (not loaded)", "Milestone 2 (closed)", "Milestone 1");
+        editor.MilestoneOptions.Select(o => o.IsSelected).Should().Equal(true, true, false);
+    }
+
+    [Fact]
+    public void Automatic_count_is_limited_to_five_and_manual_selection_too()
+    {
+        var editor = new RepositoryEditorViewModel(Data.Config() with { AutomaticMilestoneCount = 9 }, hasStoredToken: true);
+        editor.AutomaticMilestoneCount.Should().Be(5);
+
+        editor.SetMilestones(Enumerable.Range(1, 6).Select(i => new MilestoneChoice($"M{i}", $"Milestone {i}")));
+        editor.IsManualMilestones = true;
+        foreach (var option in editor.MilestoneOptions)
+        {
+            option.IsSelected = true;
+        }
+
+        editor.TryBuild(0).Should().BeNull();
+        editor.ValidationMessage.Should().Be("Select at most 5 widget milestones.");
     }
 
     [Theory]
@@ -286,7 +306,7 @@ public sealed class RepositoryEditorViewModelTests
     [InlineData("octo/widget", RepositoryProviderKind.GitLab, "https://gitlab.com/")]
     public void Identity_change_clears_external_id_and_selected_milestone(string path, RepositoryProviderKind provider, string server)
     {
-        var original = Data.Config() with { ExternalId = "R_42", SelectedMilestoneId = "M1" };
+        var original = Data.Config() with { ExternalId = "R_42", MilestoneMode = MilestoneSelectionMode.Manual, SelectedMilestoneIds = ["M1"] };
         var editor = new RepositoryEditorViewModel(original, hasStoredToken: true);
         editor.SetMilestones([new MilestoneChoice("M1", "Milestone 1")]);
 
@@ -297,7 +317,7 @@ public sealed class RepositoryEditorViewModelTests
 
         configuration.Should().NotBeNull();
         configuration!.ExternalId.Should().BeNull();
-        configuration.SelectedMilestoneId.Should().BeNull();
+        configuration.SelectedMilestoneIds.Should().BeEmpty();
         configuration.CredentialReference.Should().Be(original.CredentialReference);
     }
 
@@ -313,12 +333,12 @@ public sealed class RepositoryEditorViewModelTests
     [Fact]
     public void Selected_milestone_survives_when_milestones_are_not_loaded()
     {
-        var editor = new RepositoryEditorViewModel(Data.Config() with { SelectedMilestoneId = "M1" }, hasStoredToken: true);
+        var editor = new RepositoryEditorViewModel(Data.Config() with { MilestoneMode = MilestoneSelectionMode.Manual, SelectedMilestoneIds = ["M1"] }, hasStoredToken: true);
 
         // SettingsViewModel.Reload always calls SetMilestones, with an empty list when the hub has no snapshot.
         editor.SetMilestones([]);
 
-        editor.TryBuild(0)!.SelectedMilestoneId.Should().Be("M1");
+        editor.TryBuild(0)!.SelectedMilestoneIds.Should().Equal("M1");
     }
 
     [Fact]
