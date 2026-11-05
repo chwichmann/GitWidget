@@ -113,7 +113,7 @@
                           <Run Text="{Binding DueDate, Converter={x:Static c:LocalTimeConverter.Instance}, StringFormat=' · due {0}', Mode=OneWay}" />
                         </TextBlock>
                         <TextBlock Grid.Column="1" Classes="subtle" Margin="8,0,0,0">
-                          <Run Text="{Binding OpenIssues}" /><Run Text=" open · " /><Run Text="{Binding ClosedIssues}" /><Run Text=" closed" />
+                          <Run Text="{Binding OpenIssues}" /><Run Text=" open · " /><Run Text="{Binding ClosedIssues}" /><Run Text=" closed" /><Run Text="{Binding CompletionPercent, Converter={x:Static c:CompletionSuffixConverter.Instance}, Mode=OneWay}" FontWeight="SemiBold" />
                         </TextBlock>
                         <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Classes="milestone" Classes.overdue="{Binding IsOverdue}"
                                      Minimum="0" Maximum="1" Value="{Binding Completion}" Margin="0,4,0,0"

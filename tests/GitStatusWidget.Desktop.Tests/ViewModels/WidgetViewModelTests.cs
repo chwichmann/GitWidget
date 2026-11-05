@@ -129,7 +129,7 @@ public sealed class WidgetViewModelTests : IDisposable
         row.HasMilestone.Should().BeTrue();
         row.MilestoneTitle.Should().Be("Milestone M1");
         row.MilestonePercent.Should().Be(75);
-        row.MilestoneText.Should().Be("3/4");
+        row.MilestoneText.Should().Be($"3/4 · {(0.75).ToString("P0", System.Globalization.CultureInfo.CurrentCulture)}");
         row.MilestoneOverdue.Should().BeFalse();
         row.HasBuild.Should().BeTrue();
         row.BuildState.Should().Be(BuildState.Failed);

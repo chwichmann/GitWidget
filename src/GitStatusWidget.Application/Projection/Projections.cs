@@ -31,6 +31,12 @@ public sealed record MilestoneProgressProjection(
 
     /// <summary>Completion in [0, 1]; 0 without issues.</summary>
     public double Completion => TotalIssues == 0 ? 0 : (double)ClosedIssues / TotalIssues;
+
+    /// <summary>
+    /// Completion in percent, rounded down so 100 appears only when no issue is open; <see langword="null"/> for a
+    /// milestone without issues (issue #11). Integer arithmetic avoids floating-point artifacts.
+    /// </summary>
+    public int? CompletionPercent => TotalIssues == 0 ? null : (int)((long)ClosedIssues * 100 / TotalIssues);
 }
 
 /// <summary>Issue count of one label. Issues with several labels count for every label.</summary>

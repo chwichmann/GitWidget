@@ -25,7 +25,7 @@ public sealed class GatewayHintTests
     private readonly InlineUiDispatcher _ui = new();
     private readonly FakeNavigator _navigator = new();
 
-    private RepositoryRuntimeState Blocked(RepositoryConfiguration configuration) =>
+    private static RepositoryRuntimeState Blocked(RepositoryConfiguration configuration) =>
         State(configuration, Snapshot(configuration), RepositoryHealthState.GatewayBlocked) with
         {
             GatewayHost = "portal.example.net",

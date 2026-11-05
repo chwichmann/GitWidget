@@ -141,6 +141,25 @@ public sealed class DashboardProjectorTests
         GatewayUserAgent.Suggest("0.1.2").Should().Be("GitWidget/0.1.2 git/2.47.0");
     }
 
+    [Theory]
+    [InlineData(3, 602, 99)]
+    [InlineData(2, 1, 33)]
+    [InlineData(71, 29, 29)]
+    [InlineData(1, 999, 99)]
+    [InlineData(0, 605, 100)]
+    [InlineData(5, 0, 0)]
+    public void Completion_percent_is_rounded_down(int open, int closed, int expected)
+    {
+        // Issue #11: 100 % only when nothing is open; integer arithmetic (29 % must not become 28 %).
+        new MilestoneProgressProjection("m", "m", open, closed, null, false, false, null).CompletionPercent.Should().Be(expected);
+    }
+
+    [Fact]
+    public void Milestone_without_issues_has_no_percentage()
+    {
+        new MilestoneProgressProjection("m", "m", 0, 0, null, false, false, null).CompletionPercent.Should().BeNull();
+    }
+
     [Fact]
     public void Milestone_without_issues_has_zero_completion()
     {

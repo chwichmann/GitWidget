@@ -114,7 +114,9 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
         HasMilestone = milestone is not null;
         MilestoneTitle = milestone?.Title ?? string.Empty;
         MilestonePercent = milestone is null ? 0 : Math.Round(milestone.Completion * 100, 1);
-        MilestoneText = milestone is null ? string.Empty : string.Create(CultureInfo.CurrentCulture, $"{milestone.ClosedIssues}/{milestone.TotalIssues}");
+        MilestoneText = milestone is null
+            ? string.Empty
+            : string.Create(CultureInfo.CurrentCulture, $"{milestone.ClosedIssues}/{milestone.TotalIssues} · {Format.Percent(milestone.CompletionPercent)}");
         MilestoneOverdue = milestone?.IsOverdue ?? false;
 
         HasBuild = row.LatestBuild is not null;
@@ -148,9 +150,13 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
     };
 }
 
-/// <summary>Formatting helpers for relative times.</summary>
+/// <summary>Formatting helpers for relative times and percentages.</summary>
 internal static class Format
 {
+    /// <summary>Culture-aware percentage such as "99 %" (de-CH) or "99%" (en-US); "–" when there is no value.</summary>
+    public static string Percent(int? percent) =>
+        percent is { } value ? (value / 100d).ToString("P0", CultureInfo.CurrentCulture) : "–";
+
     public static string Age(DateTimeOffset? instant, DateTimeOffset now)
     {
         if (instant is not { } value)

@@ -101,7 +101,7 @@ public sealed class WindowSmokeTests
 
         window.IsVisible.Should().BeTrue();
         var texts = Texts(window).ToList();
-        texts.Should().Contain(["Widget", "group/sub/project", "GH", "GL", "1 open", "1 closed", "Milestone M1", "1/2"]);
+        texts.Should().Contain(["Widget", "group/sub/project", "GH", "GL", "1 open", "1 closed", "Milestone M1", $"1/2 · {(0.5).ToString("P0", System.Globalization.CultureInfo.CurrentCulture)}"]);
         texts.Should().Contain(vm.FooterText);
         errors.Messages.Should().BeEmpty();
         window.Close();

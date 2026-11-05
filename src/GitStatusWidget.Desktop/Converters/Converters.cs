@@ -99,6 +99,17 @@ public sealed class LocalTimeConverter : IValueConverter
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
 }
 
+/// <summary>" · 99 %" suffix for milestone completion (issue #11); " · –" for milestones without issues.</summary>
+public sealed class CompletionSuffixConverter : IValueConverter
+{
+    public static readonly CompletionSuffixConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        " · " + Format.Percent(value as int?);
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
 /// <summary>Ratio (0..1) to percent (0..100).</summary>
 public sealed class PercentConverter : IValueConverter
 {
