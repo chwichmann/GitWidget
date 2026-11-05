@@ -74,6 +74,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     public partial int RecentlyClosedDays { get; set; }
 
     [ObservableProperty]
+    public partial bool CheckForUpdates { get; set; }
+
+    [ObservableProperty]
+    public partial bool IncludePrereleaseUpdates { get; set; }
+
+    [ObservableProperty]
     public partial string Theme { get; set; } = "System";
 
     [ObservableProperty]
@@ -211,6 +217,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 ToastsEnabled = ToastsEnabled,
                 MinimumToastPriority = MinimumToastPriority,
                 RecentlyClosedWindow = TimeSpan.FromDays(Math.Clamp(RecentlyClosedDays, 1, 90)),
+                CheckForUpdates = CheckForUpdates,
+                IncludePrereleaseUpdates = IncludePrereleaseUpdates,
                 Theme = Theme,
             };
             await _settings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
@@ -293,6 +301,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         ToastsEnabled = settings.ToastsEnabled;
         MinimumToastPriority = settings.MinimumToastPriority;
         RecentlyClosedDays = (int)settings.RecentlyClosedWindow.TotalDays;
+        CheckForUpdates = settings.CheckForUpdates;
+        IncludePrereleaseUpdates = settings.IncludePrereleaseUpdates;
         Theme = settings.Theme;
         Selected = Repositories.FirstOrDefault();
     }

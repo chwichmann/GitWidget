@@ -30,7 +30,7 @@ public sealed class ReorderTests
     private readonly RepositoryConfiguration _b = Data.Config(name: "b", sortOrder: 1);
     private readonly RepositoryConfiguration _c = Data.Config(name: "c", sortOrder: 2);
 
-    private (FakeSynchronizationController Controller, FakeSettingsStore Store, SettingsService Service) Settings(params RepositoryConfiguration[] repositories)
+    private static (FakeSynchronizationController Controller, FakeSettingsStore Store, SettingsService Service) Settings(params RepositoryConfiguration[] repositories)
     {
         var controller = new FakeSynchronizationController(new AppSettings { Repositories = repositories });
         var store = new FakeSettingsStore();

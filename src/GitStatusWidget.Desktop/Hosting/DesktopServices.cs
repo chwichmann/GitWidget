@@ -3,6 +3,7 @@ using GitStatusWidget.Application.Comparison;
 using GitStatusWidget.Application.Persistence;
 using GitStatusWidget.Application.Projection;
 using GitStatusWidget.Application.Synchronization;
+using GitStatusWidget.Application.Updates;
 using GitStatusWidget.Desktop.Services;
 using GitStatusWidget.Desktop.ViewModels;
 using GitStatusWidget.Infrastructure.Credentials;
@@ -11,6 +12,7 @@ using GitStatusWidget.Infrastructure.Persistence;
 using GitStatusWidget.Infrastructure.Platform;
 using GitStatusWidget.Infrastructure.Providers.GitHub;
 using GitStatusWidget.Infrastructure.Providers.GitLab;
+using GitStatusWidget.Infrastructure.Updates;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -71,6 +73,17 @@ internal static class DesktopServices
             sp.GetRequiredService<ILogger<SynchronizationService>>(),
             autostarted ? TimeSpan.FromSeconds(20) : TimeSpan.Zero));
         services.AddSingleton<DashboardProjector>();
+
+        // Update notice (issue #7): first check 2 minutes after start, then daily.
+        services.AddReleaseFeed();
+        services.AddSingleton(sp => new UpdateChecker(
+            sp.GetRequiredService<IReleaseFeed>(),
+            sp.GetRequiredService<ISynchronizationController>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<ILogger<UpdateChecker>>(),
+            AppInfo.Version,
+            TimeSpan.FromMinutes(2)));
+        services.AddHostedService(sp => sp.GetRequiredService<UpdateChecker>());
 
         // Desktop
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();

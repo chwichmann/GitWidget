@@ -3,6 +3,7 @@ using Avalonia.Platform;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GitStatusWidget.Application.Synchronization;
+using GitStatusWidget.Application.Updates;
 using GitStatusWidget.Desktop.Services;
 using GitStatusWidget.Domain.Builds;
 using GitStatusWidget.Domain.Health;
@@ -34,9 +35,18 @@ public sealed partial class TrayViewModel : ObservableObject, IDisposable
     private readonly SettingsService _settings;
     private readonly IAppNavigator _navigator;
     private readonly IUiDispatcher _ui;
+    private readonly UpdateChecker? _updates;
+    private Uri? _updateUrl;
 
-    public TrayViewModel(IRepositoryStatusHub hub, ISynchronizationController controller, SettingsService settings, IAppNavigator navigator, IUiDispatcher ui)
+    public TrayViewModel(IRepositoryStatusHub hub, ISynchronizationController controller, SettingsService settings, IAppNavigator navigator, IUiDispatcher ui, UpdateChecker? updates = null)
     {
+        _updates = updates;
+        if (_updates is not null)
+        {
+            _updates.StateChanged += OnUpdateStateChanged;
+            ApplyUpdate(_updates.State);
+        }
+
         _hub = hub;
         _controller = controller;
         _settings = settings;
@@ -67,6 +77,12 @@ public sealed partial class TrayViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     public partial bool StartAtLogin { get; set; }
+
+    [ObservableProperty]
+    public partial bool UpdateAvailable { get; set; }
+
+    [ObservableProperty]
+    public partial string UpdateMenuText { get; set; } = "Update available";
 
     public bool StartAtLoginSupported => _settings.AutostartSupported;
 
@@ -102,6 +118,9 @@ public sealed partial class TrayViewModel : ObservableObject, IDisposable
     private void OpenDiagnostics() => _navigator.ShowDiagnostics();
 
     [RelayCommand]
+    private void OpenUpdate() => _navigator.OpenInBrowser(_updateUrl);
+
+    [RelayCommand]
     private void Exit() => _navigator.ExitApplication();
 
     public void Dispose()
@@ -109,6 +128,20 @@ public sealed partial class TrayViewModel : ObservableObject, IDisposable
         _hub.StateChanged -= OnStateChanged;
         _hub.RepositoryRemoved -= OnRepositoryRemoved;
         _settings.SettingsChanged -= OnSettingsChanged;
+        if (_updates is not null)
+        {
+            _updates.StateChanged -= OnUpdateStateChanged;
+        }
+    }
+
+    private void OnUpdateStateChanged(object? sender, UpdateState state) => _ui.Post(() => ApplyUpdate(state));
+
+    private void ApplyUpdate(UpdateState state)
+    {
+        var latest = state.Status == UpdateStatus.Available ? state.Latest : null;
+        UpdateAvailable = latest is not null;
+        _updateUrl = latest?.PageUrl;
+        UpdateMenuText = latest is null ? "Update available" : $"Update available: GitWidget {latest.Version}…";
     }
 
     internal static (TrayState State, string Text) Aggregate(IReadOnlyList<RepositoryRuntimeState> states)

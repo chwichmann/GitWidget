@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GitStatusWidget.Application.Projection;
 using GitStatusWidget.Application.Synchronization;
+using GitStatusWidget.Application.Updates;
 using GitStatusWidget.Desktop.Services;
 using GitStatusWidget.Domain.Events;
 
@@ -19,6 +20,7 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     private readonly TimeProvider _time;
     private readonly ITimer _freshnessTimer;
     private readonly SettingsService? _settings;
+    private readonly UpdateChecker? _updates;
     private bool _reordering;
 
     public WidgetViewModel(
@@ -28,9 +30,17 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         IUiDispatcher ui,
         IAppNavigator navigator,
         TimeProvider time,
-        SettingsService? settings = null)
+        SettingsService? settings = null,
+        UpdateChecker? updates = null)
     {
         _settings = settings;
+        _updates = updates;
+        if (_updates is not null)
+        {
+            _updates.StateChanged += OnUpdateStateChanged;
+            ApplyUpdate(_updates.State);
+        }
+
         _hub = hub;
         _projector = projector;
         _controller = controller;
@@ -64,6 +74,15 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial bool AlwaysOnTop { get; set; }
 
+    /// <summary>A newer GitWidget release exists (issue #7).</summary>
+    [ObservableProperty]
+    public partial bool UpdateAvailable { get; set; }
+
+    [ObservableProperty]
+    public partial string UpdateToolTip { get; set; } = string.Empty;
+
+    private Uri? UpdateUrl { get; set; }
+
     [RelayCommand]
     private void Refresh() => _controller.RequestRefresh();
 
@@ -75,6 +94,9 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private void Hide() => _navigator.HideWidget();
+
+    [RelayCommand]
+    private void OpenUpdate() => _navigator.OpenInBrowser(UpdateUrl);
 
     /// <summary>Starts a drag reorder: background updates no longer re-sort the rows until it is committed.</summary>
     public void BeginReorder() => _reordering = true;
@@ -110,10 +132,27 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         _hub.StateChanged -= OnStateChanged;
         _hub.RepositoryRemoved -= OnRepositoryRemoved;
         _hub.ChangesDetected -= OnChangesDetected;
+        if (_updates is not null)
+        {
+            _updates.StateChanged -= OnUpdateStateChanged;
+        }
+
         _freshnessTimer.Dispose();
     }
 
     private void OnStateChanged(object? sender, RepositoryRuntimeState state) => _ui.Post(() => Apply(state));
+
+    private void OnUpdateStateChanged(object? sender, UpdateState state) => _ui.Post(() => ApplyUpdate(state));
+
+    private void ApplyUpdate(UpdateState state)
+    {
+        var latest = state.Status == UpdateStatus.Available ? state.Latest : null;
+        UpdateAvailable = latest is not null;
+        UpdateUrl = latest?.PageUrl;
+        UpdateToolTip = latest is null
+            ? string.Empty
+            : $"GitWidget {latest.Version} is available (running {state.CurrentVersion}) – click to open the release page";
+    }
 
     private void OnRepositoryRemoved(object? sender, Guid id) => _ui.Post(() =>
     {

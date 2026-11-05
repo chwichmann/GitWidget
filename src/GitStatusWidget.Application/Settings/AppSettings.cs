@@ -31,6 +31,12 @@ public sealed record AppSettings
     /// <summary>Maximum number of repositories refreshed concurrently.</summary>
     public int MaxConcurrentRefreshes { get; init; } = 2;
 
+    /// <summary>Check for newer GitWidget releases (issue #7).</summary>
+    public bool CheckForUpdates { get; init; } = true;
+
+    /// <summary>Offer pre-releases as updates.</summary>
+    public bool IncludePrereleaseUpdates { get; init; } = true;
+
     /// <summary>Theme: <c>System</c>, <c>Light</c> or <c>Dark</c>.</summary>
     public string Theme { get; init; } = "System";
 }

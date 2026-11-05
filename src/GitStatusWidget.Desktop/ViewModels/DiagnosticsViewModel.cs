@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GitStatusWidget.Application.Platform;
 using GitStatusWidget.Application.Synchronization;
+using GitStatusWidget.Application.Updates;
 using GitStatusWidget.Desktop.Services;
 using GitStatusWidget.Domain.Repositories;
 using GitStatusWidget.Infrastructure.Persistence;
@@ -34,9 +35,11 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
     private readonly AppPaths _paths;
     private readonly CredentialStoreStatus _credentialStatus;
     private readonly TimeProvider _time;
+    private readonly UpdateChecker? _updates;
 
-    public DiagnosticsViewModel(IRepositoryStatusHub hub, AppPaths paths, CredentialStoreStatus credentialStatus, DiagnosticsLog log, TimeProvider time)
+    public DiagnosticsViewModel(IRepositoryStatusHub hub, AppPaths paths, CredentialStoreStatus credentialStatus, DiagnosticsLog log, TimeProvider time, UpdateChecker? updates = null)
     {
+        _updates = updates;
         _hub = hub;
         _paths = paths;
         _credentialStatus = credentialStatus;
@@ -64,6 +67,11 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
 
     public ObservableCollection<DiagnosticsRepositoryItem> Repositories { get; } = [];
 
+    [ObservableProperty]
+    public partial string UpdateStatus { get; set; } = "Update check not available.";
+
+    public bool CanCheckForUpdates => _updates is not null;
+
     public ObservableCollection<DiagnosticsError> Errors { get; }
 
     [RelayCommand]
@@ -75,6 +83,36 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
         {
             Repositories.Add(Describe(state, now));
         }
+
+        if (_updates is not null)
+        {
+            UpdateStatus = DescribeUpdate(_updates.State);
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        if (_updates is null)
+        {
+            return;
+        }
+
+        UpdateStatus = "Checking…";
+        var state = await _updates.CheckAsync(CancellationToken.None).ConfigureAwait(true);
+        UpdateStatus = DescribeUpdate(state);
+    }
+
+    internal static string DescribeUpdate(UpdateState state)
+    {
+        var checkedAt = state.CheckedAt is { } at ? $" (checked {at.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)})" : string.Empty;
+        return state.Status switch
+        {
+            Application.Updates.UpdateStatus.Available => $"GitWidget {state.Latest!.Version} is available – {state.Latest.PageUrl}{checkedAt}",
+            Application.Updates.UpdateStatus.UpToDate => $"Up to date{checkedAt}",
+            Application.Updates.UpdateStatus.Unavailable => $"Update check failed: {state.Message}{checkedAt}",
+            _ => state.Message ?? "Not checked yet",
+        };
     }
 
     [RelayCommand]
@@ -93,6 +131,7 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
         builder.AppendLine(Runtime);
         builder.AppendLine(CultureInfo.InvariantCulture, $"Credential store: {CredentialStore}");
         builder.AppendLine(CultureInfo.InvariantCulture, $"Data: {DataDirectory}");
+        builder.AppendLine(CultureInfo.InvariantCulture, $"Updates: {UpdateStatus}");
         foreach (var repository in Repositories)
         {
             builder.AppendLine()

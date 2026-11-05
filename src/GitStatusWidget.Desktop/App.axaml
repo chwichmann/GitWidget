@@ -19,6 +19,7 @@
             <NativeMenuItem Header="Show widget" Command="{Binding ShowWidgetCommand}" />
             <NativeMenuItem Header="Open dashboard" Command="{Binding OpenDashboardCommand}" CommandParameter="{x:Null}" />
             <NativeMenuItem Header="Refresh now" Command="{Binding RefreshCommand}" />
+            <NativeMenuItem Header="{Binding UpdateMenuText}" IsVisible="{Binding UpdateAvailable}" Command="{Binding OpenUpdateCommand}" />
             <NativeMenuItemSeparator />
             <NativeMenuItem Header="Repositories">
               <NativeMenu />
