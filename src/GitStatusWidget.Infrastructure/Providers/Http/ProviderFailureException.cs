@@ -22,6 +22,9 @@ internal class ProviderFailureException : Exception
     public DateTimeOffset? RetryAfter { get; }
 
     public HttpStatusCode? StatusCode { get; }
+
+    /// <summary>For gateway interceptions: host of the gateway or login portal.</summary>
+    public string? GatewayHost { get; init; }
 }
 
 /// <summary>

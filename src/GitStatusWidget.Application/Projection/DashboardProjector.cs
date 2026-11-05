@@ -220,6 +220,9 @@ public sealed class DashboardProjector
             RepositoryHealthState.NotFound => "Repository not found or not accessible",
             RepositoryHealthState.ProviderError => "Provider error – retrying",
             RepositoryHealthState.ConfigurationError => "Configuration error – check Settings",
+            RepositoryHealthState.GatewayBlocked => state.GatewayHost is { } host
+                ? $"Blocked by a login gateway ({host}) – adjust the User-Agent"
+                : "Blocked by a login gateway – adjust the User-Agent",
             _ => state.Health.ToString(),
         };
         return new RepositoryHealthProjection(state.Health, summary, state.LastError, state.LastSuccessAt, state.LastAttemptAt, state.BlockedUntil, state.IsRefreshing, state.RateLimit);

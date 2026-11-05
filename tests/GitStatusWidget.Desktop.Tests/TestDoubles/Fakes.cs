@@ -54,7 +54,8 @@ internal sealed class FakeNavigator : IAppNavigator
 
     public void ShowDashboard(Guid? repositoryId = null) => Calls.Add($"ShowDashboard({repositoryId})");
 
-    public void ShowSettings(Guid? repositoryId = null, bool addNew = false) => Calls.Add($"ShowSettings({repositoryId},{addNew})");
+    public void ShowSettings(Guid? repositoryId = null, bool addNew = false, bool suggestUserAgent = false) =>
+        Calls.Add(suggestUserAgent ? $"ShowSettings({repositoryId},{addNew},suggestUserAgent)" : $"ShowSettings({repositoryId},{addNew})");
 
     public void ShowDiagnostics() => Calls.Add("ShowDiagnostics()");
 

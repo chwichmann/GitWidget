@@ -52,7 +52,7 @@
               <TextBlock Text="Add a repository to get started." IsVisible="{Binding Selected, Converter={x:Static ObjectConverters.IsNull}}" Margin="8" />
               <StackPanel DataContext="{Binding Selected}" x:DataType="vm:RepositoryEditorViewModel" Spacing="10" Margin="0,0,12,12"
                           IsVisible="{Binding $parent[Window].((vm:SettingsViewModel)DataContext).Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
-                <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto,Auto" >
+                <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" >
                   <TextBlock Text="Provider" VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1" ItemsSource="{Binding Providers}" SelectedItem="{Binding Provider}" MinWidth="160" />
 
@@ -64,6 +64,17 @@
 
                   <TextBlock Grid.Row="3" Text="Display name" VerticalAlignment="Center" Margin="0,8,0,0" />
                   <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding DisplayName}" PlaceholderText="optional" Margin="0,8,0,0" />
+
+                  <!-- User-Agent: visible without expanding anything (issue #10) -->
+                  <TextBlock Grid.Row="4" Text="User-Agent" VerticalAlignment="Center" Margin="0,8,0,0" />
+                  <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+                    <TextBox x:Name="UserAgentBox" Text="{Binding UserAgent}" PlaceholderText="default: GitWidget/version" />
+                    <Button Grid.Column="1" Content="Use git-compatible" Margin="8,0,0,0" Command="{Binding UseSuggestedUserAgentCommand}"
+                            IsVisible="{Binding ShowUserAgentSuggestion}" ToolTip.Tip="{Binding GatewayHint}" />
+                  </Grid>
+                  <TextBlock Grid.Row="5" Grid.Column="1" TextWrapping="Wrap" Margin="0,4,0,0" Text="{Binding GatewayHint}"
+                             IsVisible="{Binding ShowUserAgentSuggestion}"
+                             Foreground="{Binding GatewayBlocked, Converter={x:Static c:SemanticBrushConverter.Instance}}" FontSize="11" />
                 </Grid>
 
                 <Border Classes="card">
@@ -98,18 +109,14 @@
 
                 <Expander Header="Advanced">
                   <StackPanel Spacing="8">
-                    <Grid ColumnDefinitions="200,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                    <Grid ColumnDefinitions="200,*" RowDefinitions="Auto,Auto,Auto">
                       <TextBlock Text="Issues interval (s)" VerticalAlignment="Center" />
                       <NumericUpDown Grid.Column="1" Value="{Binding IssueIntervalSeconds}" Minimum="15" Maximum="3600" Increment="5" FormatString="0" Width="140" HorizontalAlignment="Left" />
                       <TextBlock Grid.Row="1" Text="Builds interval (s)" VerticalAlignment="Center" Margin="0,8,0,0" />
                       <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding BuildIntervalSeconds}" Minimum="15" Maximum="3600" Increment="5" FormatString="0" Width="140" HorizontalAlignment="Left" Margin="0,8,0,0" />
                       <TextBlock Grid.Row="2" Text="Milestones/labels (min)" VerticalAlignment="Center" Margin="0,8,0,0" />
                       <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding MetadataIntervalMinutes}" Minimum="1" Maximum="120" FormatString="0" Width="140" HorizontalAlignment="Left" Margin="0,8,0,0" />
-                      <TextBlock Grid.Row="3" Text="User-Agent" VerticalAlignment="Center" Margin="0,8,0,0" />
-                      <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding UserAgent}" PlaceholderText="default: GitWidget/version" Margin="0,8,0,0" />
                     </Grid>
-                    <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding IsGitLab}"
-                               Text="If your GitLab sits behind an access gateway that only admits git clients, use a User-Agent such as 'GitWidget/0.1 git/2.47.0'." />
                     <CheckBox Content="Allow insecure http (internal servers only)" IsChecked="{Binding AllowInsecureHttp}" />
                   </StackPanel>
                 </Expander>

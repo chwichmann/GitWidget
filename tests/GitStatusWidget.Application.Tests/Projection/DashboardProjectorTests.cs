@@ -131,6 +131,17 @@ public sealed class DashboardProjectorTests
     }
 
     [Fact]
+    public void Gateway_blocked_health_names_the_gateway_and_the_remedy()
+    {
+        var state = new RepositoryRuntimeState(Config(), Snapshot(Issue(1)), RepositoryHealthState.GatewayBlocked) { GatewayHost = "portal.example.net" };
+
+        var health = _projector.ProjectRow(state).Health;
+
+        health.Summary.Should().Be("Blocked by a login gateway (portal.example.net) – adjust the User-Agent");
+        GatewayUserAgent.Suggest("0.1.2").Should().Be("GitWidget/0.1.2 git/2.47.0");
+    }
+
+    [Fact]
     public void Milestone_without_issues_has_zero_completion()
     {
         new MilestoneProgressProjection("x", "x", 0, 0, null, false, false, null).Completion.Should().Be(0);

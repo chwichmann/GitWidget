@@ -238,6 +238,11 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
             foreach (var entry in _entries.Values)
             {
                 entry.Failures = 0;
+                if (entry.GatewayBlocked)
+                {
+                    entry.Suspended = false;
+                }
+
                 if (!entry.BlockedByRateLimit || entry.BlockedUntil < now)
                 {
                     entry.BlockedUntil = now + TimeSpan.FromSeconds(5) + Jitter(TimeSpan.FromSeconds(10));
@@ -434,7 +439,7 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
 
         if (result is ProviderFetchResult.Failure failure)
         {
-            ApplyFailure(entry, failure.Kind, failure.Message, failure.RetryAfter, result.RateLimit);
+            ApplyFailure(entry, failure.Kind, failure.Message, failure.RetryAfter, result.RateLimit, gatewayHost: failure.GatewayHost);
             return;
         }
 
@@ -536,7 +541,7 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
         _hub.PublishChanges(new RepositoryChangesDetected(configuration.Id, newEvents, catchUp));
     }
 
-    private void ApplyFailure(Entry entry, ProviderFailureKind kind, string message, DateTimeOffset? retryAfter, RateLimitInfo? rateLimit, bool forceReconcile = false)
+    private void ApplyFailure(Entry entry, ProviderFailureKind kind, string message, DateTimeOffset? retryAfter, RateLimitInfo? rateLimit, bool forceReconcile = false, string? gatewayHost = null)
     {
         var now = _time.GetUtcNow();
         RepositoryHealthState health;
@@ -573,6 +578,13 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
                     entry.Suspended = true;
                     health = RepositoryHealthState.ConfigurationError;
                     break;
+                case ProviderFailureKind.GatewayInterception:
+                    // Retrying with the same User-Agent cannot succeed; wait for a configuration change, a manual
+                    // refresh or a resume from standby (VPN/DNS may have changed) (issue #10).
+                    entry.Suspended = true;
+                    entry.GatewayBlocked = true;
+                    health = RepositoryHealthState.GatewayBlocked;
+                    break;
                 case ProviderFailureKind.Offline:
                     entry.BlockedUntil = now + Backoff(entry.Failures);
                     health = RepositoryHealthState.Offline;
@@ -596,6 +608,7 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
                 LastAttemptAt = now,
                 BlockedUntil = entry.BlockedUntil,
                 RateLimit = rateLimit ?? entry.State.RateLimit,
+                GatewayHost = kind == ProviderFailureKind.GatewayInterception ? gatewayHost : null,
             });
         }
 
@@ -826,6 +839,9 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
 
         public bool ManualPending { get; set; }
 
+        /// <summary>The last failure was a gateway interception (suspension is lifted on resume).</summary>
+        public bool GatewayBlocked { get; set; }
+
         /// <summary>Signature of the milestone/label references unknown to the last accepted snapshot.</summary>
         public string? LastUnknownReferences { get; set; }
 
@@ -845,6 +861,7 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
             Suspended = false;
             BlockedUntil = null;
             BlockedByRateLimit = false;
+            GatewayBlocked = false;
         }
 
         public void MarkAllDue(DateTimeOffset now) => NextWorkItems = NextBuilds = NextMetadata = NextReconcile = now;

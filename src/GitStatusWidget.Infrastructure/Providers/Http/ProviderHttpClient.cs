@@ -196,7 +196,10 @@ internal sealed partial class ProviderHttpClient
                     throw new ProviderFailureException(
                         ProviderFailureKind.GatewayInterception,
                         $"Received '{ShortContentType(headers.ContentType)}' instead of API JSON. A login page or gateway may be answering; check VPN/network and the User-Agent setting.",
-                        statusCode: status);
+                        statusCode: status)
+                    {
+                        GatewayHost = request.Uri.Host,
+                    };
                 }
 
                 return new HttpResponseData(status, headers, body, request.Uri);
@@ -247,7 +250,10 @@ internal sealed partial class ProviderHttpClient
             return new ProviderFailureException(
                 ProviderFailureKind.GatewayInterception,
                 $"Redirected to another host ({target.Host}). A login portal or gateway is intercepting API calls; check VPN/DNS and the User-Agent setting.",
-                statusCode: status);
+                statusCode: status)
+            {
+                GatewayHost = target.Host,
+            };
         }
 
         return new ProviderRedirectException(status, target);

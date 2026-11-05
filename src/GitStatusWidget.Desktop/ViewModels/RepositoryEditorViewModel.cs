@@ -1,5 +1,6 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using GitStatusWidget.Application.Settings;
 using GitStatusWidget.Domain.Repositories;
 
@@ -14,7 +15,8 @@ public sealed record MilestoneChoice(string? Id, string Title)
 /// <summary>Editable form of one repository configuration. Never holds a stored token.</summary>
 public sealed partial class RepositoryEditorViewModel : ObservableObject
 {
-    public const string GitLabGatewayUserAgentHint = "GitWidget/0.1 git/2.47.0";
+    /// <summary>User-Agent offered when a gateway blocks the API (issue #10).</summary>
+    public static string SuggestedUserAgent { get; } = GatewayUserAgent.Suggest(Services.AppInfo.Version);
 
     private bool _parsing;
 
@@ -70,6 +72,21 @@ public sealed partial class RepositoryEditorViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool AllowInsecureHttp { get; set; }
+
+    /// <summary>The last refresh or connection test was intercepted by a login gateway.</summary>
+    [ObservableProperty]
+    public partial bool GatewayBlocked { get; set; }
+
+    /// <summary>Show the git-compatible User-Agent suggestion (GitLab, or any provider while blocked).</summary>
+    public bool ShowUserAgentSuggestion => IsGitLab || GatewayBlocked;
+
+    public string GatewayHint => GatewayBlocked
+        ? $"A login gateway intercepted the API calls. Gateways that only admit git clients accept a User-Agent such as '{SuggestedUserAgent}'. Also check VPN/DNS."
+        : $"If your server sits behind an access gateway that only admits git clients, use a User-Agent such as '{SuggestedUserAgent}'.";
+
+    /// <summary>Fills in <see cref="SuggestedUserAgent"/>; nothing is saved until the user saves the settings.</summary>
+    [RelayCommand]
+    public void UseSuggestedUserAgent() => UserAgent = SuggestedUserAgent;
 
     [ObservableProperty]
     public partial bool IsEnabled { get; set; }
@@ -178,6 +195,7 @@ public sealed partial class RepositoryEditorViewModel : ObservableObject
 
         OnPropertyChanged(nameof(IsGitLab));
         OnPropertyChanged(nameof(TokenHint));
+        OnPropertyChanged(nameof(ShowUserAgentSuggestion));
     }
 
     partial void OnRepositoryPathChanged(string value)
@@ -204,6 +222,12 @@ public sealed partial class RepositoryEditorViewModel : ObservableObject
     }
 
     partial void OnDisplayNameChanged(string value) => OnPropertyChanged(nameof(Title));
+
+    partial void OnGatewayBlockedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowUserAgentSuggestion));
+        OnPropertyChanged(nameof(GatewayHint));
+    }
 
     partial void OnHasStoredTokenChanged(bool value) => OnPropertyChanged(nameof(TokenStatus));
 

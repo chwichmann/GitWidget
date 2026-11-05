@@ -100,7 +100,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
 
-    public void Select(Guid? repositoryId, bool addNew)
+    public void Select(Guid? repositoryId, bool addNew, bool suggestUserAgent = false)
     {
         if (addNew)
         {
@@ -109,6 +109,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         Selected = Repositories.FirstOrDefault(r => r.Id == repositoryId) ?? Repositories.FirstOrDefault();
+        if (suggestUserAgent && Selected is not null)
+        {
+            Selected.UseSuggestedUserAgent();
+        }
     }
 
     [RelayCommand]
@@ -166,6 +170,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             await StoreTokenAsync(editor, configuration).ConfigureAwait(true);
             var result = await _providers.Resolve(configuration.Provider).TestConnectionAsync(configuration, CancellationToken.None).ConfigureAwait(true);
             editor.ConnectionOk = result.IsSuccess;
+            editor.GatewayBlocked = result.Failure == ProviderFailureKind.GatewayInterception;
             var details = new[] { result.ServerVersion is null ? null : $"server {result.ServerVersion}", result.CredentialDescription, result.CredentialExpiresOn is { } expires ? $"token expires {expires:yyyy-MM-dd}" : null }
                 .Where(d => d is not null);
             editor.ConnectionMessage = string.Join(" · ", new[] { result.Message }.Concat(details));
@@ -298,7 +303,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         _removed.Clear();
         foreach (var configuration in settings.Repositories.OrderBy(r => r.SortOrder))
         {
-            var editor = new RepositoryEditorViewModel(configuration, hasStoredToken: true);
+            var editor = new RepositoryEditorViewModel(configuration, hasStoredToken: true)
+            {
+                GatewayBlocked = _hub.Find(configuration.Id)?.Health == Domain.Health.RepositoryHealthState.GatewayBlocked,
+            };
             var milestones = _hub.Find(configuration.Id)?.Snapshot?.Milestones.Where(m => !m.IsClosed)
                 .Select(m => new MilestoneChoice(m.ExternalId, m.Title)) ?? [];
             editor.SetMilestones(milestones);

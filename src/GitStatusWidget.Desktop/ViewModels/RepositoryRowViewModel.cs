@@ -82,6 +82,10 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
     [ObservableProperty]
     public partial bool HasProblem { get; set; }
 
+    /// <summary>Show the health summary as its own line (problem while data is shown, issue #10).</summary>
+    [ObservableProperty]
+    public partial bool ShowProblemLine { get; set; }
+
     [ObservableProperty]
     public partial bool IsRefreshing { get; set; }
 
@@ -121,6 +125,7 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
         HealthText = row.Health.Summary;
         HealthDetail = row.Health.Detail;
         HasProblem = row.Health.State is not (RepositoryHealthState.Healthy or RepositoryHealthState.Refreshing);
+        ShowProblemLine = HasProblem && HasData;
         IsRefreshing = row.Health.IsRefreshing;
         LastSuccessAt = row.Health.LastSuccessAt;
         UpdateFreshness(now);

@@ -17,7 +17,11 @@ public interface IAppNavigator
 
     void ShowDashboard(Guid? repositoryId = null);
 
-    void ShowSettings(Guid? repositoryId = null, bool addNew = false);
+    /// <summary>Opens the settings window.</summary>
+    /// <param name="repositoryId">Repository to select.</param>
+    /// <param name="addNew">Start adding a new repository.</param>
+    /// <param name="suggestUserAgent">Pre-fill the gateway User-Agent suggestion for the repository (issue #10).</param>
+    void ShowSettings(Guid? repositoryId = null, bool addNew = false, bool suggestUserAgent = false);
 
     void ShowDiagnostics();
 

@@ -318,6 +318,34 @@ public sealed class SynchronizationEngineTests : IDisposable
         _provider.Contexts.Last().Scope.Should().HaveFlag(RefreshScope.Metadata);
     }
 
+    [Fact]
+    public async Task Gateway_interception_blocks_polling_until_refresh_resume_or_user_agent_change()
+    {
+        // Issue #10: retrying with the same User-Agent cannot succeed.
+        _provider.EnqueueRepeating(_ => new ProviderFetchResult.Failure(ProviderFailureKind.GatewayInterception, "Redirected to another host") { GatewayHost = "portal.example.net" });
+        await StartAsync();
+        await RunDueAsync(TimeSpan.FromSeconds(6));
+
+        State.Health.Should().Be(RepositoryHealthState.GatewayBlocked);
+        State.GatewayHost.Should().Be("portal.example.net");
+        await RunDueAsync(TimeSpan.FromMinutes(30));
+        _provider.Contexts.Should().HaveCount(1, "no automatic retries while blocked");
+
+        _engine.RequestRefresh(_config.Id);
+        await RunDueAsync();
+        _provider.Contexts.Should().HaveCount(2);
+
+        _engine.NotifyResume();
+        await RunDueAsync(TimeSpan.FromSeconds(20));
+        _provider.Contexts.Should().HaveCount(3, "a resume from standby retries (VPN/DNS may have changed)");
+
+        _provider.EnqueueRepeating(_ => FakeProvider.Full([Issue(1)]));
+        await _engine.ApplySettingsAsync(new AppSettings { Repositories = [_config with { UserAgent = "GitWidget/0.1.2 git/2.47.0" }] }, CancellationToken.None);
+        await RunDueAsync();
+        State.Health.Should().Be(RepositoryHealthState.Healthy);
+        State.GatewayHost.Should().BeNull();
+    }
+
     private sealed class FakeProvider : IRepositoryStatusProvider
     {
         private readonly Queue<Func<SnapshotRequestContext, Task<ProviderFetchResult>>> _responses = new();

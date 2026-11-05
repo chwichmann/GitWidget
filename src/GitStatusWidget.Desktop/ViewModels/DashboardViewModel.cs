@@ -107,6 +107,9 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     public partial bool HasProblem { get; set; }
+    /// <summary>The repository is blocked by a login gateway; offer the User-Agent suggestion (issue #10).</summary>
+    [ObservableProperty]
+    public partial bool CanSuggestUserAgent { get; set; }
 
     [ObservableProperty]
     public partial string FreshnessText { get; set; } = string.Empty;
@@ -143,6 +146,9 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private void OpenDiagnostics() => _navigator.ShowDiagnostics();
+
+    [RelayCommand]
+    private void UseSuggestedUserAgent() => _navigator.ShowSettings(SelectedRepository?.Id, suggestUserAgent: true);
 
     [RelayCommand]
     private void OpenSettings() => _navigator.ShowSettings(SelectedRepository?.Id, addNew: SelectedRepository is null);
@@ -289,6 +295,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         var projection = _projector.ProjectDashboard(state, _controller.Settings.DailyCountMode);
         IsRefreshing = projection.Health.IsRefreshing;
         HasProblem = projection.Health.State is not (RepositoryHealthState.Healthy or RepositoryHealthState.Refreshing);
+        CanSuggestUserAgent = projection.Health.State == RepositoryHealthState.GatewayBlocked;
         FreshnessText = projection.Health.LastSuccessAt is { } success
             ? $"Updated {Format.Age(success, _time.GetUtcNow())} ({success.ToLocalTime().ToString("t", CultureInfo.CurrentCulture)})"
             : "Not updated yet";

@@ -37,6 +37,9 @@ public sealed record RepositoryRuntimeState(
     /// <summary>Latest provider rate-limit information.</summary>
     public RateLimitInfo? RateLimit { get; init; }
 
+    /// <summary>Host of the gateway that intercepted the last refresh, if any (issue #10).</summary>
+    public string? GatewayHost { get; init; }
+
     /// <summary>Configuration id.</summary>
     public Guid Id => Configuration.Id;
 }

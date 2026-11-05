@@ -150,7 +150,7 @@ public sealed partial class WindowManager : IAppNavigator, IToastPresenter, IDis
         _dashboard.Activate();
     }
 
-    public void ShowSettings(Guid? repositoryId = null, bool addNew = false)
+    public void ShowSettings(Guid? repositoryId = null, bool addNew = false, bool suggestUserAgent = false)
     {
         if (_settingsWindow is null)
         {
@@ -160,7 +160,7 @@ public sealed partial class WindowManager : IAppNavigator, IToastPresenter, IDis
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         }
 
-        ((SettingsViewModel)_settingsWindow.DataContext!).Select(repositoryId, addNew);
+        ((SettingsViewModel)_settingsWindow.DataContext!).Select(repositoryId, addNew, suggestUserAgent);
         _settingsWindow.Show();
         _settingsWindow.Activate();
     }

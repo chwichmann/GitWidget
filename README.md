@@ -26,7 +26,7 @@ Tagged versions (`v*`) are additionally published as GitHub releases.
    - **GitHub:** a fine-grained personal access token limited to the repository, with read-only *Metadata*, *Issues*, *Pull requests* and *Actions*.
    - **GitLab:** a personal or project access token with only the `read_api` scope (Reporter role or higher).
    The token is stored in the OS credential store (Windows Credential Manager, macOS Keychain, Linux Secret Service), never in files.
-4. **GitLab behind an access gateway** (for example Citrix) that only admits git clients: under *Advanced*, set the User-Agent to something like `GitWidget/0.1 git/2.47.0`. If GitWidget reports that a login page or gateway answered instead of the API, check the VPN and this setting.
+4. **GitLab behind an access gateway** (for example Citrix) that only admits git clients: set the **User-Agent** of the repository to a git-compatible value such as `GitWidget/0.1.2 git/2.47.0` (the **Use git-compatible** button fills it in). If a gateway intercepts the API anyway, the widget and the dashboard say so ("Blocked by a login gateway") and the dashboard offers **Use suggested User-Agent…**; also check the VPN.
 5. Click **Test connection**, then **Save**.
 
 Logs (no tokens, no issue contents) are written to `%LocalAppData%\GitStatusWidget\logs` on Windows (`~/Library/Application Support/GitStatusWidget/logs` on macOS). Settings and the snapshot cache live next to them.

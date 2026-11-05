@@ -54,7 +54,7 @@
               <DataTemplate x:DataType="vm:RepositoryRowViewModel">
                 <Border x:Name="RowRoot" Margin="6,2" Padding="8,6" CornerRadius="8" Background="Transparent"
                         Cursor="Hand" ToolTip.Tip="{Binding ToolTipText}">
-                  <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+                  <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
                     <!-- Line 1: badge, name, health -->
                     <StackPanel Orientation="Horizontal" Spacing="6">
                       <Border Classes="badge" ToolTip.Tip="{Binding ProviderName}">
@@ -88,6 +88,11 @@
                       </TextBlock>
                     </StackPanel>
                     <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="subtle" Margin="0,4,0,0" IsVisible="{Binding !HasData}" Text="{Binding HealthText}" />
+
+                    <!-- Problem line: actionable health text while (cached) data is shown -->
+                    <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Classes="caption" Margin="0,4,0,0" TextWrapping="Wrap"
+                               IsVisible="{Binding ShowProblemLine}" Text="{Binding HealthText}"
+                               Foreground="{Binding Health, Converter={x:Static c:SemanticBrushConverter.Instance}}" />
 
                     <!-- Line 3: milestone -->
                     <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,4,0,0" IsVisible="{Binding HasMilestone}">

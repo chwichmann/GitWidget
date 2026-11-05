@@ -68,7 +68,9 @@ public sealed class ProviderHttpClientTests : IDisposable
 
         var act = () => Client().SendAsync(Get("/html"), CancellationToken.None);
 
-        (await act.Should().ThrowAsync<ProviderFailureException>()).Which.Kind.Should().Be(ProviderFailureKind.GatewayInterception);
+        var failure = (await act.Should().ThrowAsync<ProviderFailureException>()).Which;
+        failure.Kind.Should().Be(ProviderFailureKind.GatewayInterception);
+        failure.GatewayHost.Should().Be(new Uri(_server.Url!).Host);
     }
 
     [Fact]
@@ -79,7 +81,9 @@ public sealed class ProviderHttpClientTests : IDisposable
 
         var act = () => Client().SendAsync(Get("/api"), CancellationToken.None);
 
-        (await act.Should().ThrowAsync<ProviderFailureException>()).Which.Kind.Should().Be(ProviderFailureKind.GatewayInterception);
+        var failure = (await act.Should().ThrowAsync<ProviderFailureException>()).Which;
+        failure.Kind.Should().Be(ProviderFailureKind.GatewayInterception);
+        failure.GatewayHost.Should().Be("portal.example.net", "the UI names the intercepting host (issue #10)");
         _server.LogEntries.Should().HaveCount(1);
     }
 

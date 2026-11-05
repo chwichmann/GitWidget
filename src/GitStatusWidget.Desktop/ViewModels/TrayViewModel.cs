@@ -190,6 +190,7 @@ public sealed partial class TrayViewModel : ObservableObject, IDisposable
         RepositoryHealthState.AuthorizationFailed => "access denied",
         RepositoryHealthState.NotFound => "not found",
         RepositoryHealthState.ConfigurationError => "configuration error",
+        RepositoryHealthState.GatewayBlocked => "blocked by login gateway",
         _ => "provider error",
     };
 

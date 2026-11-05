@@ -34,4 +34,7 @@ public enum RepositoryHealthState
 
     /// <summary>The local configuration is invalid.</summary>
     ConfigurationError = 10,
+
+    /// <summary>A login gateway or portal intercepted the API calls (for example it requires a git-like User-Agent).</summary>
+    GatewayBlocked = 11,
 }

@@ -26,7 +26,7 @@ public sealed class SemanticBrushConverter : IValueConverter
             RepositoryHealthState.Healthy => "SuccessBrush",
             RepositoryHealthState.Refreshing => "InfoBrush",
             RepositoryHealthState.AuthenticationFailed or RepositoryHealthState.AuthorizationFailed or RepositoryHealthState.NotFound or RepositoryHealthState.ConfigurationError => "FailureBrush",
-            RepositoryHealthState.Stale or RepositoryHealthState.RateLimited or RepositoryHealthState.ProviderError => "WarningBrush",
+            RepositoryHealthState.Stale or RepositoryHealthState.RateLimited or RepositoryHealthState.ProviderError or RepositoryHealthState.GatewayBlocked => "WarningBrush",
             RepositoryHealthState => "NeutralBrush",
             WorkItemState.Open => "InfoBrush",
             WorkItemState.Closed => "SuccessBrush",

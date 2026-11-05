@@ -27,7 +27,7 @@ internal static class ProviderBoundary
         }
         catch (ProviderFailureException ex)
         {
-            return new ProviderFetchResult.Failure(ex.Kind, ex.Message, ex.RetryAfter) { RateLimit = rateLimit() };
+            return new ProviderFetchResult.Failure(ex.Kind, ex.Message, ex.RetryAfter) { RateLimit = rateLimit(), GatewayHost = ex.GatewayHost };
         }
         catch (ProviderResponseException ex)
         {
@@ -55,7 +55,7 @@ internal static class ProviderBoundary
         }
         catch (ProviderFailureException ex)
         {
-            return ProviderConnectionResult.Fail(ex.Kind, ex.Message);
+            return ProviderConnectionResult.Fail(ex.Kind, ex.Message) with { GatewayHost = ex.GatewayHost };
         }
         catch (Exception ex) when (ex is ProviderResponseException or JsonException or FormatException)
         {

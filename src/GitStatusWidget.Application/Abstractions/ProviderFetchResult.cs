@@ -68,7 +68,11 @@ public abstract record ProviderFetchResult
     /// <param name="Kind">Failure classification.</param>
     /// <param name="Message">Sanitized, user-presentable message (never contains secrets).</param>
     /// <param name="RetryAfter">Earliest time to retry, when the provider said so.</param>
-    public sealed record Failure(ProviderFailureKind Kind, string Message, DateTimeOffset? RetryAfter = null) : ProviderFetchResult;
+    public sealed record Failure(ProviderFailureKind Kind, string Message, DateTimeOffset? RetryAfter = null) : ProviderFetchResult
+    {
+        /// <summary>For <see cref="ProviderFailureKind.GatewayInterception"/>: host of the gateway or login portal, if known.</summary>
+        public string? GatewayHost { get; init; }
+    }
 }
 
 /// <summary>
@@ -90,6 +94,9 @@ public sealed record ProviderConnectionResult(RepositoryIdentity? Identity, Prov
 
     /// <summary>Token expiry date, if the provider reports it.</summary>
     public DateOnly? CredentialExpiresOn { get; init; }
+
+    /// <summary>For <see cref="ProviderFailureKind.GatewayInterception"/>: host of the gateway or login portal, if known.</summary>
+    public string? GatewayHost { get; init; }
 
     /// <summary>Creates a successful result.</summary>
     /// <param name="identity">Resolved identity.</param>

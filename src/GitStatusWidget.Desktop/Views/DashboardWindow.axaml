@@ -71,6 +71,8 @@
                 <Run Text="{Binding Projection.Health.Summary, FallbackValue=''}" />
               </TextBlock>
               <TextBlock Classes="subtle" Text="{Binding Projection.Health.Detail, FallbackValue=''}" TextWrapping="Wrap" />
+              <Button Content="Use suggested User-Agent…" Command="{Binding UseSuggestedUserAgentCommand}" IsVisible="{Binding CanSuggestUserAgent}"
+                      Margin="0,6,0,0" ToolTip.Tip="Opens the repository settings with a git-compatible User-Agent filled in; nothing is saved until you click Save." />
             </StackPanel>
           </Border>
 
