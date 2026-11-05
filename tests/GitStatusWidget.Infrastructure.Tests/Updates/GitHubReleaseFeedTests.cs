@@ -95,6 +95,17 @@ public sealed class GitHubReleaseFeedTests : IDisposable
         result.Should().BeOfType<ReleaseFeedResult.Unavailable>().Which.Reason.Should().Contain("private repository");
     }
 
+    [Fact]
+    public async Task Forbidden_names_the_missing_contents_permission()
+    {
+        // Found live: a fine-grained token without "Contents: Read-only" gets 403 on the release list.
+        ServeReleases(403, """{"message":"Resource not accessible by personal access token"}""");
+
+        var result = await Feed(new AppSettings()).GetReleasesAsync(CancellationToken.None);
+
+        result.Should().BeOfType<ReleaseFeedResult.Unavailable>().Which.Reason.Should().Contain("Contents: Read-only");
+    }
+
     private sealed class SingleClientFactory(HttpClient client) : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => client;

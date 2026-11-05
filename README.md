@@ -23,7 +23,7 @@ Tagged versions (`v*`) are additionally published as GitHub releases.
 1. **Start GitWidget.** On Windows the binary is unsigned, so SmartScreen may warn ("More info" → "Run anyway"). It runs without administrator rights. GitWidget lives in the tray (Windows notification area / macOS menu bar). Closing the widget only hides it; use **Exit** in the tray menu to quit.
 2. **Add a repository** in Settings (the ⚙ button in the widget, or the tray menu). Pasting the repository URL fills in server and path.
 3. **Create a read-only token:**
-   - **GitHub:** a fine-grained personal access token limited to the repository, with read-only *Metadata*, *Issues*, *Pull requests* and *Actions*.
+   - **GitHub:** a fine-grained personal access token limited to the repository, with read-only *Metadata*, *Issues*, *Pull requests* and *Actions*. For the update notice, the token configured for `chwichmann/GitWidget` additionally needs *Contents: Read-only* (to read releases).
    - **GitLab:** a personal or project access token with only the `read_api` scope (Reporter role or higher).
    The token is stored in the OS credential store (Windows Credential Manager, macOS Keychain, Linux Secret Service), never in files.
 4. **GitLab behind an access gateway** (for example Citrix) that only admits git clients: set the **User-Agent** of the repository to a git-compatible value such as `GitWidget/0.1.2 git/2.47.0` (the **Use git-compatible** button fills it in). If a gateway intercepts the API anyway, the widget and the dashboard say so ("Blocked by a login gateway") and the dashboard offers **Use suggested User-Agent…**; also check the VPN.

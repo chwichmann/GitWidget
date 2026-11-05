@@ -109,9 +109,13 @@ internal sealed class GitHubReleaseFeed : IReleaseFeed
         }
         catch (ProviderFailureException ex)
         {
-            var reason = ex.StatusCode == HttpStatusCode.NotFound
-                ? $"Releases of {_options.Repository} are not accessible (private repository? Add it as a monitored GitHub repository so its token can be used)."
-                : $"Could not read releases: {ex.Message}";
+            var reason = ex.StatusCode switch
+            {
+                HttpStatusCode.NotFound => $"Releases of {_options.Repository} are not accessible (private repository? Add it as a monitored GitHub repository so its token can be used).",
+                HttpStatusCode.Forbidden when ex.Kind == Application.Abstractions.ProviderFailureKind.AuthorizationFailed =>
+                    $"The token of {_options.Repository} cannot read releases. Give the fine-grained token the repository permission \"Contents: Read-only\" (monitoring itself does not need it).",
+                _ => $"Could not read releases: {ex.Message}",
+            };
             return new ReleaseFeedResult.Unavailable(reason);
         }
         catch (ProviderResponseException ex)
