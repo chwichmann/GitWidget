@@ -256,6 +256,68 @@ public sealed class SynchronizationEngineTests : IDisposable
         State.Health.Should().Be(RepositoryHealthState.Stale);
     }
 
+    [Fact]
+    public async Task Issue_referencing_an_unknown_milestone_triggers_a_metadata_refresh_right_away()
+    {
+        // Issue #8: a milestone created after the last metadata poll must not wait for the metadata interval.
+        _provider.Enqueue(_ => FakeProvider.Full([Issue(1)]));
+        await StartAsync();
+        await RunDueAsync(TimeSpan.FromSeconds(6));
+        var assigned = Issue(2, updatedAt: _time.GetUtcNow().AddSeconds(5), milestone: new MilestoneReference("M9", "0.1.2"));
+        _provider.Enqueue(_ => FakeProvider.Delta([assigned]));
+        _provider.EnqueueRepeating(_ => FakeProvider.Delta([]));
+
+        await RunDueAsync(TimeSpan.FromSeconds(35));
+        _provider.Contexts.Last().Scope.Should().NotHaveFlag(RefreshScope.Metadata);
+
+        await RunDueAsync();
+
+        _provider.Contexts.Last().Scope.Should().HaveFlag(RefreshScope.Metadata, "the unknown milestone is fetched without waiting 5 minutes");
+    }
+
+    [Fact]
+    public async Task Unresolvable_reference_does_not_cause_repeated_metadata_refreshes()
+    {
+        _provider.Enqueue(_ => FakeProvider.Full([Issue(1, milestone: new MilestoneReference("GONE", "deleted"))]));
+        _provider.EnqueueRepeating(_ => FakeProvider.Delta([]));
+        await StartAsync();
+        await RunDueAsync(TimeSpan.FromSeconds(6));
+        var calls = _provider.Contexts.Count;
+
+        await RunDueAsync();
+        await RunDueAsync();
+
+        _provider.Contexts.Should().HaveCount(calls, "the first (full) refresh already included metadata and the reference stays unknown");
+    }
+
+    [Fact]
+    public async Task Manual_refresh_during_a_narrower_scheduled_refresh_runs_afterwards_with_metadata()
+    {
+        _provider.Enqueue(_ => FakeProvider.Full([Issue(1)]));
+        await StartAsync();
+        await RunDueAsync(TimeSpan.FromSeconds(6));
+        var gate = new TaskCompletionSource();
+        var called = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _provider.Enqueue(async _ =>
+        {
+            called.TrySetResult();
+            await gate.Task;
+            return FakeProvider.Delta([]);
+        });
+        _provider.EnqueueRepeating(_ => FakeProvider.Delta([]));
+        _time.Advance(TimeSpan.FromSeconds(35));
+        _engine.StartDueRefreshes(CancellationToken.None);
+        await called.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        _provider.Contexts.Last().Scope.Should().NotHaveFlag(RefreshScope.Metadata);
+
+        _engine.RequestRefresh(); // user clicks "Refresh now" while the scheduled refresh runs
+        gate.SetResult();
+        await _engine.WhenIdleAsync();
+        await RunDueAsync();
+
+        _provider.Contexts.Last().Scope.Should().HaveFlag(RefreshScope.Metadata);
+    }
+
     private sealed class FakeProvider : IRepositoryStatusProvider
     {
         private readonly Queue<Func<SnapshotRequestContext, Task<ProviderFetchResult>>> _responses = new();

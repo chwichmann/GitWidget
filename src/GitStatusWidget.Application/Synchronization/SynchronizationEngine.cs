@@ -496,11 +496,30 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
             }
 
             entry.ResetFailureState();
+            if ((scope & ManualScope) == ManualScope)
+            {
+                // A manual refresh is satisfied only by a refresh that covered its sections (issue #8). A manual
+                // request that arrived during a narrower scheduled refresh stays pending and runs right after it.
+                entry.ManualPending = false;
+            }
+
             entry.ScheduleAfterSuccess(scope, now, configuration, Stretch(result.RateLimit, now), Jitter);
             if (accepted.ReconciliationRecommended)
             {
                 entry.NextReconcile = now;
             }
+
+            // Issues may reference milestones or labels that the snapshot does not know yet (created after the last
+            // metadata poll): fetch metadata now instead of waiting for the metadata interval (issue #8). Each set of
+            // unknown references triggers only once, so permanently unresolvable references cannot cause a loop.
+            var unknown = UnknownReferences(snapshot);
+            if (unknown is not null && !scope.HasFlag(RefreshScope.Metadata) && !string.Equals(unknown, entry.LastUnknownReferences, StringComparison.Ordinal))
+            {
+                entry.NextMetadata = now;
+                LogUnknownReferences(_logger, configuration.FullPath);
+            }
+
+            entry.LastUnknownReferences = unknown;
 
             catchUp = entry.CatchUpPending;
             entry.CatchUpPending = false;
@@ -708,6 +727,29 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
         || fetch.Labels is SectionUpdate<Domain.Labels.LabelSnapshot>.ReplaceSection
         || fetch.Builds is SectionUpdate<Domain.Builds.BuildSnapshot>.ReplaceSection;
 
+    /// <summary>Sections a manual refresh asks for.</summary>
+    private const RefreshScope ManualScope = RefreshScope.WorkItems | RefreshScope.Builds | RefreshScope.Metadata;
+
+    /// <summary>
+    /// Returns a stable signature of milestone ids and label names that issues reference but the snapshot's milestone
+    /// and label lists do not contain, or <see langword="null"/> when everything is known.
+    /// </summary>
+    internal static string? UnknownReferences(RepositorySnapshot snapshot)
+    {
+        var milestones = snapshot.Milestones.Select(m => m.ExternalId).ToHashSet(StringComparer.Ordinal);
+        var labels = snapshot.Labels.Select(l => l.Name).ToHashSet(StringComparer.Ordinal);
+        var unknown = snapshot.Issues
+            .Select(i => i.Milestone?.ExternalId)
+            .OfType<string>()
+            .Where(id => !milestones.Contains(id))
+            .Select(id => "m:" + id)
+            .Concat(snapshot.Issues.SelectMany(i => i.Labels).Select(l => l.Name).Where(n => !labels.Contains(n)).Select(n => "l:" + n))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        return unknown.Count == 0 ? null : string.Join('|', unknown);
+    }
+
     private static bool IdentityChanged(RepositoryConfiguration a, RepositoryConfiguration b) =>
         a.Provider != b.Provider
         || a.ServerUri != b.ServerUri
@@ -736,6 +778,9 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
 
     [LoggerMessage(EventId = 2005, Level = LogLevel.Error, Message = "Could not persist snapshot of {Repository}")]
     private static partial void LogPersistFailed(ILogger logger, Exception exception, string repository);
+
+    [LoggerMessage(EventId = 2007, Level = LogLevel.Information, Message = "Issues of {Repository} reference unknown milestones or labels; refreshing metadata now")]
+    private static partial void LogUnknownReferences(ILogger logger, string repository);
 
     [LoggerMessage(EventId = 2006, Level = LogLevel.Information, Message = "System resume detected; refreshing all repositories shortly")]
     private static partial void LogResume(ILogger logger);
@@ -781,6 +826,9 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
 
         public bool ManualPending { get; set; }
 
+        /// <summary>Signature of the milestone/label references unknown to the last accepted snapshot.</summary>
+        public string? LastUnknownReferences { get; set; }
+
         public int Failures { get; set; }
 
         public bool CatchUpPending { get; set; }
@@ -797,7 +845,6 @@ public sealed partial class SynchronizationEngine : ISynchronizationController, 
             Suspended = false;
             BlockedUntil = null;
             BlockedByRateLimit = false;
-            ManualPending = false;
         }
 
         public void MarkAllDue(DateTimeOffset now) => NextWorkItems = NextBuilds = NextMetadata = NextReconcile = now;

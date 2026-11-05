@@ -84,6 +84,19 @@ public sealed class DashboardProjectorTests
     }
 
     [Fact]
+    public void Automatic_selection_picks_a_new_open_milestone_without_due_date()
+    {
+        // Issue #8: milestone 0.1.2 has no due date; once loaded it is the automatic choice.
+        var snapshot = Snapshot(Issue(7, milestone: new MilestoneReference("MI", "0.1.2"))) with
+        {
+            Milestones = [new MilestoneSnapshot("MI", "0.1.2", null, null, null, false, 1, 0)],
+        };
+
+        _projector.ProjectRow(new RepositoryRuntimeState(Config(), snapshot, RepositoryHealthState.Healthy))
+            .CurrentMilestone!.Title.Should().Be("0.1.2");
+    }
+
+    [Fact]
     public void Milestone_without_issues_has_zero_completion()
     {
         new MilestoneProgressProjection("x", "x", 0, 0, null, false, false, null).Completion.Should().Be(0);
