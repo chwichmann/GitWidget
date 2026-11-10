@@ -186,6 +186,7 @@ public sealed class SettingsViewModelTests
         vm.Selected.NewToken = Token;
         vm.AddCommand.Execute(null);
         vm.Selected!.RepositoryPath = "";
+        vm.Selected.NewToken = Token; // started but incomplete: not a blank form, so it is validated
 
         await vm.SaveCommand.ExecuteAsync(null);
 
@@ -359,5 +360,21 @@ public sealed class SettingsViewModelTests
         var saved = _store.Saved.Single();
         saved.WidgetIdleTransparency.Should().Be(AppSettings.MaxWidgetTransparency, "clamped to 0..80 %");
         saved.WidgetHoverTransparency.Should().Be(30);
+    }
+
+    [Fact]
+    public async Task General_settings_can_be_saved_while_the_new_repository_form_is_still_blank()
+    {
+        // Settings opens a blank repository form when nothing is configured; it must not block "Save".
+        var vm = Create();
+        vm.Select(null, addNew: true);
+        vm.WidgetIdleTransparency = 40;
+
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        var saved = _store.Saved.Single();
+        saved.Repositories.Should().BeEmpty();
+        saved.WidgetIdleTransparency.Should().Be(40);
+        vm.StatusMessage.Should().Be("Saved.");
     }
 }

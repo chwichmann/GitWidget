@@ -90,22 +90,45 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial int WidgetHoverTransparency { get; set; }
 
-    partial void OnWidgetIdleTransparencyChanged(int value)
+    private bool _transparencyLoaded;
+    private bool _adjustingTransparency;
+
+    partial void OnWidgetIdleTransparencyChanged(int value) => OnTransparencyChanged(hoverMoved: false);
+
+    partial void OnWidgetHoverTransparencyChanged(int value) => OnTransparencyChanged(hoverMoved: true);
+
+    private void OnTransparencyChanged(bool hoverMoved)
     {
-        // Mouse-over is never more transparent than idle.
-        if (WidgetHoverTransparency > value)
+        if (_adjustingTransparency)
         {
-            WidgetHoverTransparency = value;
+            return;
+        }
+
+        // Mouse-over is never more transparent than idle: the slider being moved drags the other one along.
+        _adjustingTransparency = true;
+        if (hoverMoved && WidgetHoverTransparency > WidgetIdleTransparency)
+        {
+            WidgetIdleTransparency = WidgetHoverTransparency;
+        }
+        else if (!hoverMoved && WidgetHoverTransparency > WidgetIdleTransparency)
+        {
+            WidgetHoverTransparency = WidgetIdleTransparency;
+        }
+
+        _adjustingTransparency = false;
+
+        // Live preview in the widget; nothing is saved until "Save".
+        if (_transparencyLoaded)
+        {
+            _settings.PreviewWidgetTransparency(new WidgetTransparencyPreview(
+                Math.Clamp(WidgetIdleTransparency, 0, AppSettings.MaxWidgetTransparency),
+                Math.Clamp(WidgetHoverTransparency, 0, AppSettings.MaxWidgetTransparency),
+                hoverMoved));
         }
     }
 
-    partial void OnWidgetHoverTransparencyChanged(int value)
-    {
-        if (value > WidgetIdleTransparency)
-        {
-            WidgetIdleTransparency = value;
-        }
-    }
+    /// <summary>Ends the transparency preview (Settings closed); unsaved values are dropped.</summary>
+    public void EndPreview() => _settings.EndWidgetTransparencyPreview();
 
     [ObservableProperty]
     public partial bool CheckForUpdates { get; set; }
@@ -216,6 +239,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         StatusMessage = null;
         var configurations = new List<RepositoryConfiguration>();
+        // A new repository form that was never filled in (Settings opens one when nothing is configured) must not
+        // block saving the general settings: it is dropped instead of validated.
+        foreach (var blank in Repositories.Where(r => r.IsBlank).ToList())
+        {
+            Repositories.Remove(blank);
+        }
+
         foreach (var (editor, index) in Repositories.Select((e, i) => (e, i)))
         {
             var configuration = editor.TryBuild(index);
@@ -349,8 +379,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         DailyCount = DailyCountModes.First(m => m.Mode == settings.DailyCountMode);
         CheckForUpdates = settings.CheckForUpdates;
         IncludePrereleaseUpdates = settings.IncludePrereleaseUpdates;
+        _transparencyLoaded = false;
         WidgetIdleTransparency = settings.WidgetIdleTransparency;
         WidgetHoverTransparency = settings.WidgetHoverTransparency;
+        _transparencyLoaded = true;
         Theme = settings.Theme;
         Selected = Repositories.FirstOrDefault();
     }

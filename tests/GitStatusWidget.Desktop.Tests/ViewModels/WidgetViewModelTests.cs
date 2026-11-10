@@ -32,7 +32,8 @@ public sealed class WidgetViewModelTests : IDisposable
     {
         var vm = Create();
 
-        vm.Rows.Should().BeEmpty();
+        vm.Rows.Should().NotBeEmpty().And.OnlyContain(r => r.IsDemo, "demo rows stand in while nothing is configured");
+        vm.IsDemo.Should().BeTrue();
         vm.IsEmpty.Should().BeTrue();
         vm.FooterText.Should().Be("No repositories configured");
 
@@ -231,7 +232,7 @@ public sealed class WidgetViewModelTests : IDisposable
         _time.Advance(TimeSpan.FromMinutes(5));
 
         _ui.PostCount.Should().Be(posts);
-        vm.Rows.Should().BeEmpty();
+        vm.Rows.Should().OnlyContain(r => r.IsDemo, "the published repository no longer reaches the disposed view model");
     }
 
     [Fact]
@@ -335,5 +336,52 @@ public sealed class WidgetViewModelTests : IDisposable
 
         vm.IdleOpacity.Should().Be(1);
         vm.HoverOpacity.Should().Be(1);
+    }
+
+    [Fact]
+    public void Demo_rows_give_way_to_the_first_repository_and_return_when_it_is_removed()
+    {
+        var vm = Create();
+        var configuration = Data.Config();
+
+        _hub.Publish(Data.State(configuration, Data.Snapshot(configuration)));
+
+        vm.Rows.Should().ContainSingle().Which.IsDemo.Should().BeFalse();
+        vm.IsDemo.Should().BeFalse();
+        vm.IsEmpty.Should().BeFalse();
+
+        _hub.Remove(configuration.Id);
+
+        vm.Rows.Should().NotBeEmpty().And.OnlyContain(r => r.IsDemo);
+        vm.IsEmpty.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Clicking_a_demo_row_leads_to_adding_a_repository()
+    {
+        var vm = Create();
+
+        vm.OpenDashboardCommand.Execute(vm.Rows[0]);
+
+        _navigator.Calls.Should().Equal("ShowSettings(,True)");
+    }
+
+    [Fact]
+    public void Transparency_preview_is_shown_immediately_and_dropped_when_it_ends()
+    {
+        var settings = new SettingsService(new FakeSettingsStore(), _controller, new FakeAutostartService());
+        using var vm = new WidgetViewModel(_hub, new DashboardProjector(_time), _controller, _ui, _navigator, _time, settings);
+
+        settings.PreviewWidgetTransparency(new WidgetTransparencyPreview(50, 20, ShowHover: false));
+        vm.IdleOpacity.Should().BeApproximately(0.5, 1e-9);
+        vm.HoverOpacity.Should().BeApproximately(0.8, 1e-9);
+        vm.PreviewOpacity.Should().BeApproximately(0.5, 1e-9, "the idle slider is being moved");
+
+        settings.PreviewWidgetTransparency(new WidgetTransparencyPreview(50, 30, ShowHover: true));
+        vm.PreviewOpacity.Should().BeApproximately(0.7, 1e-9, "the mouse-over slider is being moved");
+
+        settings.EndWidgetTransparencyPreview();
+        vm.PreviewOpacity.Should().BeNull();
+        vm.IdleOpacity.Should().Be(1, "nothing was saved");
     }
 }

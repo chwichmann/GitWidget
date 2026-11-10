@@ -19,6 +19,9 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
 
     public Guid Id { get; }
 
+    /// <summary>Sample row shown while no repository is configured.</summary>
+    public bool IsDemo => DemoData.IsDemo(Id);
+
     [ObservableProperty]
     public partial string DisplayName { get; set; } = string.Empty;
 

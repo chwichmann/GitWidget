@@ -71,6 +71,9 @@ public sealed partial class RepositoryEditorViewModel : ObservableObject
 
     public bool IsNew { get; }
 
+    /// <summary>A new repository whose path and token were never entered.</summary>
+    public bool IsBlank => IsNew && string.IsNullOrWhiteSpace(RepositoryPath) && string.IsNullOrWhiteSpace(NewToken);
+
     public RepositoryConfiguration? Original { get; }
 
     public IReadOnlyList<RepositoryProviderKind> Providers { get; } = [RepositoryProviderKind.GitHub, RepositoryProviderKind.GitLab];

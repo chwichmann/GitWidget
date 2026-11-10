@@ -42,14 +42,14 @@
       <!-- Footer -->
       <TextBlock DockPanel.Dock="Bottom" Classes="caption" Margin="12,4,12,10" Text="{Binding FooterText}" />
 
+      <!-- Empty state: demo rows below, so the widget and its settings can be tried without a repository -->
+      <StackPanel DockPanel.Dock="Top" IsVisible="{Binding IsEmpty}" Margin="16,8,16,6" Spacing="6">
+        <TextBlock Text="No repositories yet." />
+        <TextBlock Classes="caption" Text="The rows below are demo data." IsVisible="{Binding IsDemo}" />
+        <Button Content="Add a repository…" Command="{Binding OpenSettingsCommand}" />
+      </StackPanel>
       <Panel>
-        <!-- Empty state -->
-        <StackPanel IsVisible="{Binding IsEmpty}" Margin="16,12" Spacing="8">
-          <TextBlock Text="No repositories yet." />
-          <Button Content="Add a repository…" Command="{Binding OpenSettingsCommand}" />
-        </StackPanel>
-
-        <ScrollViewer IsVisible="{Binding !IsEmpty}" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
           <ItemsControl x:Name="RowsList" ItemsSource="{Binding Rows}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:RepositoryRowViewModel">

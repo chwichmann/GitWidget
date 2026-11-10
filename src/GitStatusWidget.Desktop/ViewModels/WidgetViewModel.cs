@@ -37,6 +37,7 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         if (_settings is not null)
         {
             _settings.SettingsChanged += OnSettingsChanged;
+            _settings.WidgetTransparencyPreviewChanged += OnTransparencyPreviewChanged;
         }
 
         _updates = updates;
@@ -88,6 +89,17 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial double HoverOpacity { get; set; } = 1;
 
+    /// <summary>
+    /// Opacity pinned by the transparency preview in Settings, regardless of the mouse; <see langword="null"/> when no
+    /// preview is running. The window clears it when the mouse enters the widget.
+    /// </summary>
+    [ObservableProperty]
+    public partial double? PreviewOpacity { get; set; }
+
+    /// <summary>The rows are sample data because no repository is configured.</summary>
+    [ObservableProperty]
+    public partial bool IsDemo { get; set; }
+
     /// <summary>A newer GitWidget release exists (issue #7).</summary>
     [ObservableProperty]
     public partial bool UpdateAvailable { get; set; }
@@ -101,7 +113,17 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     private void Refresh() => _controller.RequestRefresh();
 
     [RelayCommand]
-    private void OpenDashboard(RepositoryRowViewModel? row) => _navigator.ShowDashboard(row?.Id);
+    private void OpenDashboard(RepositoryRowViewModel? row)
+    {
+        if (row?.IsDemo == true)
+        {
+            // Demo rows have no dashboard; lead to adding a real repository instead.
+            _navigator.ShowSettings(addNew: true);
+            return;
+        }
+
+        _navigator.ShowDashboard(row?.Id);
+    }
 
     [RelayCommand]
     private void OpenSettings() => _navigator.ShowSettings(addNew: IsEmpty);
@@ -154,6 +176,7 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         if (_settings is not null)
         {
             _settings.SettingsChanged -= OnSettingsChanged;
+            _settings.WidgetTransparencyPreviewChanged -= OnTransparencyPreviewChanged;
         }
 
         _freshnessTimer.Dispose();
@@ -216,6 +239,7 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
 
     private void Apply(RepositoryRuntimeState state)
     {
+        RemoveDemoRows();
         var projection = _projector.ProjectRow(state, _controller.Settings.DailyCountMode);
         var row = Rows.FirstOrDefault(r => r.Id == state.Id);
         if (row is null)
@@ -269,9 +293,61 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
 
     private void OnSettingsChanged(object? sender, Application.Settings.AppSettings settings) => _ui.Post(() =>
     {
+        PreviewOpacity = null;
         ApplyTransparency(settings);
         UpdateFreshness();
     });
+
+    private void OnTransparencyPreviewChanged(object? sender, WidgetTransparencyPreview? preview) => _ui.Post(() =>
+    {
+        if (preview is null)
+        {
+            PreviewOpacity = null;
+            ApplyTransparency(_controller.Settings);
+            return;
+        }
+
+        ApplyTransparency(_controller.Settings with
+        {
+            WidgetIdleTransparency = preview.IdleTransparency,
+            WidgetHoverTransparency = preview.HoverTransparency,
+        });
+        PreviewOpacity = preview.ShowHover ? HoverOpacity : IdleOpacity;
+    });
+
+    /// <summary>Shows sample rows while no repository is configured, and removes them once one exists.</summary>
+    private void UpdateDemoRows()
+    {
+        if (_hub.States.Count > 0)
+        {
+            RemoveDemoRows();
+            return;
+        }
+
+        var now = _time.GetUtcNow();
+        var period = _controller.Settings.DailyCountMode == Application.Settings.DailyCountMode.Last24Hours
+            ? DashboardProjector.Last24HoursLabel
+            : DashboardProjector.TodayLabel;
+        foreach (var projection in DemoData.Rows(now, period))
+        {
+            var row = Rows.FirstOrDefault(r => r.Id == projection.Header.RepositoryId);
+            if (row is null)
+            {
+                row = new RepositoryRowViewModel(projection.Header.RepositoryId);
+                Rows.Add(row);
+            }
+
+            row.Update(projection, now);
+        }
+    }
+
+    private void RemoveDemoRows()
+    {
+        foreach (var demo in Rows.Where(r => r.IsDemo).ToList())
+        {
+            Rows.Remove(demo);
+        }
+    }
 
     private void ApplyTransparency(Application.Settings.AppSettings settings)
     {
@@ -282,7 +358,9 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
 
     private void UpdateFooter()
     {
-        IsEmpty = Rows.Count == 0;
+        UpdateDemoRows();
+        IsDemo = Rows.Any(r => r.IsDemo);
+        IsEmpty = IsDemo || Rows.Count == 0;
         IsAnyRefreshing = Rows.Any(r => r.IsRefreshing);
         var last = Rows.Select(r => r.LastSuccessAt).Where(t => t is not null).DefaultIfEmpty(null).Max();
         var count = $"{Rows.Count} {(Rows.Count == 1 ? "repository" : "repositories")}";

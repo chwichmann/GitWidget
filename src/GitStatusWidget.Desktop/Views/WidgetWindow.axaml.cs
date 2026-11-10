@@ -66,13 +66,19 @@ public partial class WidgetWindow : Window
         base.OnPropertyChanged(change);
         if (change.Property == IsPointerOverProperty)
         {
+            if (IsPointerOver && _observed is not null)
+            {
+                // The mouse is back on the widget: stop pinning the previewed value so mouse-over can be tried.
+                _observed.PreviewOpacity = null;
+            }
+
             ApplyOpacity(animate: true);
         }
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(WidgetViewModel.IdleOpacity) or nameof(WidgetViewModel.HoverOpacity))
+        if (e.PropertyName is nameof(WidgetViewModel.IdleOpacity) or nameof(WidgetViewModel.HoverOpacity) or nameof(WidgetViewModel.PreviewOpacity))
         {
             ApplyOpacity(animate: true);
         }
@@ -86,7 +92,9 @@ public partial class WidgetWindow : Window
             return;
         }
 
-        var target = _observed is null ? 1 : IsPointerOver ? _observed.HoverOpacity : _observed.IdleOpacity;
+        var target = _observed is null
+            ? 1
+            : _observed.PreviewOpacity ?? (IsPointerOver ? _observed.HoverOpacity : _observed.IdleOpacity);
         WidgetRoot.Transitions = animate && _motion?.ReduceMotion != true
             ? [new DoubleTransition { Property = OpacityProperty, Duration = FadeDuration }]
             : null;

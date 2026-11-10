@@ -157,7 +157,11 @@ public sealed partial class WindowManager : IAppNavigator, IToastPresenter, IDis
             var vm = _services.GetRequiredService<SettingsViewModel>();
             _settingsWindow = new SettingsWindow { DataContext = vm };
             vm.CloseRequested += (_, _) => _settingsWindow?.Close();
-            _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+            _settingsWindow.Closed += (_, _) =>
+            {
+                vm.EndPreview();
+                _settingsWindow = null;
+            };
         }
 
         ((SettingsViewModel)_settingsWindow.DataContext!).Select(repositoryId, addNew, suggestUserAgent);

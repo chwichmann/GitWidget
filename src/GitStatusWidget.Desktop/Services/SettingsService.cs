@@ -21,7 +21,19 @@ public sealed class SettingsService
 
     public event EventHandler<AppSettings>? SettingsChanged;
 
+    /// <summary>
+    /// Raised while the transparency sliders in Settings are moved (not saved yet), and with <see langword="null"/>
+    /// when the preview ends (issue #15).
+    /// </summary>
+    public event EventHandler<WidgetTransparencyPreview?>? WidgetTransparencyPreviewChanged;
+
     public AppSettings Current => _controller.Settings;
+
+    /// <summary>Shows unsaved transparency values in the widget.</summary>
+    public void PreviewWidgetTransparency(WidgetTransparencyPreview preview) => WidgetTransparencyPreviewChanged?.Invoke(this, preview);
+
+    /// <summary>Ends the preview; the widget returns to the saved values.</summary>
+    public void EndWidgetTransparencyPreview() => WidgetTransparencyPreviewChanged?.Invoke(this, null);
 
     public bool AutostartSupported => _autostart.IsSupported;
 
@@ -86,3 +98,9 @@ public sealed class SettingsService
         return SaveAsync(change(_controller.Settings), cancellationToken);
     }
 }
+
+/// <summary>Unsaved widget transparency values being tried in Settings (issue #15).</summary>
+/// <param name="IdleTransparency">Transparency while the mouse is elsewhere, in percent.</param>
+/// <param name="HoverTransparency">Transparency while the mouse is over the widget, in percent.</param>
+/// <param name="ShowHover">The mouse-over value is the one being adjusted and should be shown now.</param>
+public sealed record WidgetTransparencyPreview(int IdleTransparency, int HoverTransparency, bool ShowHover);
