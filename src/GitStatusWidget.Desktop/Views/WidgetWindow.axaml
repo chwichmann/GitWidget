@@ -15,7 +15,8 @@
         TransparencyLevelHint="AcrylicBlur, Blur, Transparent"
         Background="Transparent"
         WindowStartupLocation="Manual">
-  <Border CornerRadius="12"
+  <Border x:Name="WidgetRoot"
+          CornerRadius="12"
           Background="{DynamicResource WidgetBackgroundBrush}"
           BorderBrush="{DynamicResource WidgetBorderBrush}"
           BorderThickness="1"

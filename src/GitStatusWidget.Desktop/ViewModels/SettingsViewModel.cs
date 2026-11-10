@@ -82,6 +82,31 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial DailyCountChoice? DailyCount { get; set; }
 
+    /// <summary>Widget transparency in percent while the mouse is elsewhere (issue #15).</summary>
+    [ObservableProperty]
+    public partial int WidgetIdleTransparency { get; set; }
+
+    /// <summary>Widget transparency in percent while the mouse is over the widget.</summary>
+    [ObservableProperty]
+    public partial int WidgetHoverTransparency { get; set; }
+
+    partial void OnWidgetIdleTransparencyChanged(int value)
+    {
+        // Mouse-over is never more transparent than idle.
+        if (WidgetHoverTransparency > value)
+        {
+            WidgetHoverTransparency = value;
+        }
+    }
+
+    partial void OnWidgetHoverTransparencyChanged(int value)
+    {
+        if (value > WidgetIdleTransparency)
+        {
+            WidgetIdleTransparency = value;
+        }
+    }
+
     [ObservableProperty]
     public partial bool CheckForUpdates { get; set; }
 
@@ -234,6 +259,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 DailyCountMode = DailyCount?.Mode ?? DailyCountMode.CalendarDay,
                 CheckForUpdates = CheckForUpdates,
                 IncludePrereleaseUpdates = IncludePrereleaseUpdates,
+                WidgetIdleTransparency = Math.Clamp(WidgetIdleTransparency, 0, AppSettings.MaxWidgetTransparency),
+                WidgetHoverTransparency = Math.Clamp(WidgetHoverTransparency, 0, Math.Clamp(WidgetIdleTransparency, 0, AppSettings.MaxWidgetTransparency)),
                 Theme = Theme,
             };
             await _settings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
@@ -322,6 +349,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         DailyCount = DailyCountModes.First(m => m.Mode == settings.DailyCountMode);
         CheckForUpdates = settings.CheckForUpdates;
         IncludePrereleaseUpdates = settings.IncludePrereleaseUpdates;
+        WidgetIdleTransparency = settings.WidgetIdleTransparency;
+        WidgetHoverTransparency = settings.WidgetHoverTransparency;
         Theme = settings.Theme;
         Selected = Repositories.FirstOrDefault();
     }

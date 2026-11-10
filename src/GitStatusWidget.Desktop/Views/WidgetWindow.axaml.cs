@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -13,6 +15,7 @@ public partial class WidgetWindow : Window
 {
     private readonly MotionPreference? _motion;
     private readonly DragReorder _reorder;
+    private WidgetViewModel? _observed;
 
     public WidgetWindow()
     {
@@ -37,6 +40,58 @@ public partial class WidgetWindow : Window
 
     public WidgetWindow(MotionPreference motion)
         : this() => _motion = motion;
+
+    /// <summary>Duration of the fade between idle and mouse-over opacity (issue #15).</summary>
+    public static readonly TimeSpan FadeDuration = TimeSpan.FromMilliseconds(150);
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (_observed is not null)
+        {
+            _observed.PropertyChanged -= OnViewModelPropertyChanged;
+        }
+
+        _observed = DataContext as WidgetViewModel;
+        if (_observed is not null)
+        {
+            _observed.PropertyChanged += OnViewModelPropertyChanged;
+        }
+
+        ApplyOpacity(animate: false);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == IsPointerOverProperty)
+        {
+            ApplyOpacity(animate: true);
+        }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(WidgetViewModel.IdleOpacity) or nameof(WidgetViewModel.HoverOpacity))
+        {
+            ApplyOpacity(animate: true);
+        }
+    }
+
+    /// <summary>Translucent while the mouse is elsewhere, less so while it is over the widget (issue #15).</summary>
+    private void ApplyOpacity(bool animate)
+    {
+        if (WidgetRoot is null)
+        {
+            return;
+        }
+
+        var target = _observed is null ? 1 : IsPointerOver ? _observed.HoverOpacity : _observed.IdleOpacity;
+        WidgetRoot.Transitions = animate && _motion?.ReduceMotion != true
+            ? [new DoubleTransition { Property = OpacityProperty, Duration = FadeDuration }]
+            : null;
+        WidgetRoot.Opacity = target;
+    }
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {

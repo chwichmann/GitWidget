@@ -123,6 +123,27 @@ public sealed class WindowSmokeTests
     }
 
     [AvaloniaFact]
+    public void Widget_is_translucent_while_the_mouse_is_elsewhere()
+    {
+        // Issue #15: without the pointer over the window the idle opacity applies, and it follows the settings.
+        using var vm = WidgetViewModel();
+        vm.IdleOpacity = 0.6;
+        vm.HoverOpacity = 0.9;
+        // Reduced motion: the opacity switches without the fade, so the test needs no animation clock.
+        var window = new WidgetWindow(new MotionPreference(new FakeReducedMotionDetector { Enabled = true })) { DataContext = vm };
+        window.Show();
+        Pump(window);
+        var root = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "WidgetRoot");
+        root.Opacity.Should().Be(0.6);
+
+        vm.IdleOpacity = 1;
+        Pump(window);
+
+        root.Opacity.Should().Be(1);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void Closing_the_widget_by_the_user_hides_it_instead_of_closing()
     {
         using var vm = WidgetViewModel();

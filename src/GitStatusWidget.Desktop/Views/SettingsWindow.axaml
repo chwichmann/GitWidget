@@ -166,6 +166,17 @@
             <TextBlock Text="Keep recently closed items for (days)" VerticalAlignment="Center" />
             <NumericUpDown Value="{Binding RecentlyClosedDays}" Minimum="1" Maximum="90" FormatString="0" Width="120" />
           </StackPanel>
+          <Grid ColumnDefinitions="Auto,200,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4"
+                ToolTip.Tip="0 % keeps the widget opaque. The widget stays clickable at every transparency.">
+            <TextBlock Text="Widget transparency" VerticalAlignment="Center" />
+            <Slider Grid.Column="1" Minimum="0" Maximum="80" TickFrequency="5" IsSnapToTickEnabled="True"
+                    Value="{Binding WidgetIdleTransparency}" />
+            <TextBlock Grid.Column="2" Text="{Binding WidgetIdleTransparency, StringFormat='{}{0} %'}" VerticalAlignment="Center" />
+            <TextBlock Grid.Row="1" Text="… while the mouse is over it" VerticalAlignment="Center" />
+            <Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="80" TickFrequency="5" IsSnapToTickEnabled="True"
+                    Value="{Binding WidgetHoverTransparency}" />
+            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding WidgetHoverTransparency, StringFormat='{}{0} %'}" VerticalAlignment="Center" />
+          </Grid>
           <CheckBox Content="Check for new GitWidget versions (shows ⬆ in the widget)" IsChecked="{Binding CheckForUpdates}" />
           <CheckBox Content="Include pre-releases" IsChecked="{Binding IncludePrereleaseUpdates}" IsEnabled="{Binding CheckForUpdates}" Margin="24,0,0,0" />
           <StackPanel Orientation="Horizontal" Spacing="8">

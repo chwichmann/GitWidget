@@ -1,4 +1,5 @@
 using GitStatusWidget.Application.Projection;
+using GitStatusWidget.Application.Settings;
 using GitStatusWidget.Application.Synchronization;
 using GitStatusWidget.Desktop.Services;
 using GitStatusWidget.Desktop.Tests.TestData;
@@ -314,5 +315,25 @@ public sealed class WidgetViewModelTests : IDisposable
 
         _controller.RefreshRequests.Should().Equal((Guid?)null);
         _navigator.Calls.Should().Equal($"ShowDashboard({configuration.Id})", "ShowDashboard()", "ShowSettings(,False)", "HideWidget");
+    }
+
+    [Fact]
+    public void Transparency_settings_become_idle_and_mouse_over_opacity()
+    {
+        var controller = new FakeSynchronizationController(new AppSettings { WidgetIdleTransparency = 40, WidgetHoverTransparency = 90 });
+
+        using var vm = new WidgetViewModel(_hub, new DashboardProjector(_time), controller, _ui, new FakeNavigator(), _time);
+
+        vm.IdleOpacity.Should().BeApproximately(0.6, 1e-9);
+        vm.HoverOpacity.Should().BeApproximately(0.6, 1e-9, "mouse-over is never more transparent than idle");
+    }
+
+    [Fact]
+    public void Widget_is_opaque_by_default()
+    {
+        using var vm = new WidgetViewModel(_hub, new DashboardProjector(_time), new FakeSynchronizationController(), _ui, new FakeNavigator(), _time);
+
+        vm.IdleOpacity.Should().Be(1);
+        vm.HoverOpacity.Should().Be(1);
     }
 }

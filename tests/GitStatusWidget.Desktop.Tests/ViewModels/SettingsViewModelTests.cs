@@ -341,4 +341,23 @@ public sealed class SettingsViewModelTests
         vm.Selected.ConnectionMessage.Should().BeNull();
         _providers.GitHub.Tested.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task Widget_transparency_is_saved_and_mouse_over_never_exceeds_idle()
+    {
+        var vm = Create(Data.Config());
+        vm.WidgetIdleTransparency = 40;
+        vm.WidgetHoverTransparency = 10;
+        vm.WidgetIdleTransparency = 5; // pulls the mouse-over value down
+        vm.WidgetHoverTransparency.Should().Be(5);
+        vm.WidgetHoverTransparency = 30; // pushes the idle value up
+        vm.WidgetIdleTransparency.Should().Be(30);
+        vm.WidgetIdleTransparency = 500;
+
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        var saved = _store.Saved.Single();
+        saved.WidgetIdleTransparency.Should().Be(AppSettings.MaxWidgetTransparency, "clamped to 0..80 %");
+        saved.WidgetHoverTransparency.Should().Be(30);
+    }
 }

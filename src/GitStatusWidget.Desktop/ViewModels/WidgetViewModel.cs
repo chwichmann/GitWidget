@@ -52,6 +52,7 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         _ui = ui;
         _navigator = navigator;
         _time = time;
+        ApplyTransparency(_controller.Settings);
         _hub.StateChanged += OnStateChanged;
         _hub.RepositoryRemoved += OnRepositoryRemoved;
         _hub.ChangesDetected += OnChangesDetected;
@@ -78,6 +79,14 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     public partial bool AlwaysOnTop { get; set; }
+
+    /// <summary>Opacity of the widget while the mouse is elsewhere (issue #15).</summary>
+    [ObservableProperty]
+    public partial double IdleOpacity { get; set; } = 1;
+
+    /// <summary>Opacity of the widget while the mouse is over it; never below <see cref="IdleOpacity"/>.</summary>
+    [ObservableProperty]
+    public partial double HoverOpacity { get; set; } = 1;
 
     /// <summary>A newer GitWidget release exists (issue #7).</summary>
     [ObservableProperty]
@@ -258,7 +267,18 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         UpdateFooter();
     }
 
-    private void OnSettingsChanged(object? sender, Application.Settings.AppSettings settings) => _ui.Post(UpdateFreshness);
+    private void OnSettingsChanged(object? sender, Application.Settings.AppSettings settings) => _ui.Post(() =>
+    {
+        ApplyTransparency(settings);
+        UpdateFreshness();
+    });
+
+    private void ApplyTransparency(Application.Settings.AppSettings settings)
+    {
+        var normalized = settings.Normalize();
+        IdleOpacity = 1 - (normalized.WidgetIdleTransparency / 100.0);
+        HoverOpacity = 1 - (normalized.WidgetHoverTransparency / 100.0);
+    }
 
     private void UpdateFooter()
     {

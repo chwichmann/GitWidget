@@ -50,10 +50,28 @@ public sealed record AppSettings
     /// <summary>Offer pre-releases as updates.</summary>
     public bool IncludePrereleaseUpdates { get; init; } = true;
 
+    /// <summary>Highest transparency of the widget, in percent.</summary>
+    public const int MaxWidgetTransparency = 80;
+
+    /// <summary>Transparency of the widget while the mouse is elsewhere, in percent (0 = opaque, issue #15).</summary>
+    public int WidgetIdleTransparency { get; init; }
+
+    /// <summary>Transparency of the widget while the mouse is over it, in percent; never above the idle value.</summary>
+    public int WidgetHoverTransparency { get; init; }
+
     /// <summary>Theme: <c>System</c>, <c>Light</c> or <c>Dark</c>.</summary>
     public string Theme { get; init; } = "System";
 
     /// <summary>Returns a copy with all values clamped to their valid ranges (applied when loading).</summary>
     /// <returns>The normalized settings.</returns>
-    public AppSettings Normalize() => this with { Repositories = Repositories.Select(r => r.Normalize()).ToList() };
+    public AppSettings Normalize()
+    {
+        var idle = Math.Clamp(WidgetIdleTransparency, 0, MaxWidgetTransparency);
+        return this with
+        {
+            Repositories = Repositories.Select(r => r.Normalize()).ToList(),
+            WidgetIdleTransparency = idle,
+            WidgetHoverTransparency = Math.Clamp(WidgetHoverTransparency, 0, idle),
+        };
+    }
 }
