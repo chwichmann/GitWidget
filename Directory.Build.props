@@ -11,6 +11,7 @@
     <Authors>Christian Wichmann</Authors>
     <Product>GitWidget</Product>
     <Copyright>Copyright (c) Christian Wichmann</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <!-- Production projects: nullable warnings are errors (architecture rule 16). -->

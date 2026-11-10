@@ -56,3 +56,7 @@ dotnet run --project src/GitStatusWidget.Desktop
 ## Security
 
 Tokens are stored only in the operating system's credential store: Windows Credential Manager, the macOS Keychain or the Linux Secret Service. They are never written to settings, logs or caches. The app only reads data from your repositories and never changes anything.
+
+## License
+
+GitWidget is released under the [MIT License](LICENSE).
