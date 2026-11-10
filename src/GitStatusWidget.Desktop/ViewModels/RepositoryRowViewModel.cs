@@ -40,12 +40,24 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
     [ObservableProperty]
     public partial int ClosedToday { get; set; }
 
-    /// <summary>Suffix after the closed-in-period count, e.g. " today" or " in 24 h" (issue #9).</summary>
+    /// <summary>Issues created in the counting period (issue #13).</summary>
+    [ObservableProperty]
+    public partial int OpenedToday { get; set; }
+
+    /// <summary>Suffix naming the counting period, e.g. " today" or " in 24 h" (issue #9).</summary>
     [ObservableProperty]
     public partial string PeriodSuffix { get; set; } = " today";
 
+    /// <summary>Period counters in one line, e.g. "2 new · 3 closed today"; parts that are zero are left out (issue #13).</summary>
     [ObservableProperty]
-    public partial string PeriodToolTip { get; set; } = "Issues closed today (since midnight)";
+    public partial string PeriodText { get; set; } = string.Empty;
+
+    /// <summary>At least one period counter is not zero.</summary>
+    [ObservableProperty]
+    public partial bool HasPeriodActivity { get; set; }
+
+    [ObservableProperty]
+    public partial string PeriodToolTip { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial bool HasMilestone { get; set; }
@@ -102,9 +114,13 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
         OpenIssues = row.Summary.OpenIssues;
         ClosedIssues = row.Summary.ClosedIssues;
         ClosedToday = row.Summary.ClosedToday;
+        OpenedToday = row.Summary.OpenedToday;
         var last24Hours = row.Summary.PeriodLabel == DashboardProjector.Last24HoursLabel;
         PeriodSuffix = last24Hours ? " in 24 h" : " today";
-        PeriodToolTip = last24Hours ? "Issues closed in the last 24 hours" : "Issues closed today (since midnight)";
+        var parts = PeriodParts(row.Summary);
+        HasPeriodActivity = parts.Count > 0;
+        PeriodText = parts.Count > 0 ? string.Join(" · ", parts) + PeriodSuffix : string.Empty;
+        PeriodToolTip = (last24Hours ? "In the last 24 hours: " : "Today (since midnight): ") + PeriodDetail(row.Summary);
 
         UpdateMilestones(row.Milestones);
 
@@ -150,6 +166,29 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
 
         HasMilestone = Milestones.Count > 0;
     }
+
+    private static List<string> PeriodParts(SummaryProjection summary)
+    {
+        var parts = new List<string>(2);
+        if (summary.OpenedToday > 0)
+        {
+            parts.Add(string.Create(CultureInfo.CurrentCulture, $"{summary.OpenedToday} new"));
+        }
+
+        if (summary.ClosedToday > 0)
+        {
+            parts.Add(string.Create(CultureInfo.CurrentCulture, $"{summary.ClosedToday} closed"));
+        }
+
+        return parts;
+    }
+
+    private static string PeriodDetail(SummaryProjection summary) => string.Create(
+        CultureInfo.CurrentCulture,
+        $"{Count(summary.OpenedToday, "issue")} created, {Count(summary.ClosedToday, "issue")} closed");
+
+    private static string Count(int value, string noun) =>
+        string.Create(CultureInfo.CurrentCulture, $"{value} {noun}{(value == 1 ? string.Empty : "s")}");
 
     public void UpdateFreshness(DateTimeOffset now) => FreshnessText = Format.Age(LastSuccessAt, now);
 
