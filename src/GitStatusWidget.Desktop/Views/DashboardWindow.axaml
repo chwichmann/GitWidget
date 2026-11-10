@@ -77,7 +77,7 @@
           </Border>
 
           <!-- Summary cards -->
-          <UniformGrid Columns="6" IsVisible="{Binding Projection.HasData, FallbackValue=False}">
+          <UniformGrid Rows="1" IsVisible="{Binding Projection.HasData, FallbackValue=False}">
             <Border Classes="card" Margin="0,0,8,0">
               <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.OpenIssues, FallbackValue=0}" Foreground="{DynamicResource InfoBrush}" /><TextBlock Classes="subtle" Text="open issues" /></StackPanel>
             </Border>
@@ -89,6 +89,10 @@
             </Border>
             <Border Classes="card" Margin="0,0,8,0">
               <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.OpenedToday, FallbackValue=0}" /><TextBlock Classes="subtle" Text="{Binding Projection.Summary.PeriodLabel, StringFormat='opened {0}', FallbackValue='opened today'}" /></StackPanel>
+            </Border>
+            <Border Classes="card" Margin="0,0,8,0" IsVisible="{Binding Projection.Summary.CommitsToday, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}"
+                    ToolTip.Tip="Commits on the default branch">
+              <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.CommitsToday, FallbackValue=0}" /><TextBlock Classes="subtle" Text="{Binding Projection.Summary.PeriodLabel, StringFormat='commits {0}', FallbackValue='commits today'}" /></StackPanel>
             </Border>
             <Border Classes="card" Margin="0,0,8,0">
               <StackPanel><TextBlock Classes="number" Text="{Binding Projection.Summary.OpenWithoutMilestone, FallbackValue=0}" /><TextBlock Classes="subtle" Text="no milestone" /></StackPanel>

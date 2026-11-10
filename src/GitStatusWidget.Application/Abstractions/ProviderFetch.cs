@@ -99,6 +99,8 @@ public sealed record CountsUpdate(
 /// <param name="Labels">Labels.</param>
 /// <param name="Builds">Most recent builds, newest first.</param>
 /// <param name="Counts">Totals, or <see langword="null"/> when not refreshed.</param>
+/// <param name="Commits">Commit times of the default branch since <see cref="CommitWindow"/> ago, or
+/// <see langword="null"/> when not refreshed (issue #14).</param>
 public sealed record ProviderFetch(
     RepositoryIdentity Repository,
     string? DefaultBranch,
@@ -108,4 +110,12 @@ public sealed record ProviderFetch(
     SectionUpdate<MilestoneSnapshot> Milestones,
     SectionUpdate<LabelSnapshot> Labels,
     SectionUpdate<BuildSnapshot> Builds,
-    CountsUpdate? Counts);
+    CountsUpdate? Counts,
+    SectionUpdate<DateTimeOffset>? Commits = null)
+{
+    /// <summary>
+    /// How far back providers read the commit history. Covers both counting periods ("today" and "last 24 h")
+    /// with a margin for polling gaps.
+    /// </summary>
+    public static readonly TimeSpan CommitWindow = TimeSpan.FromHours(26);
+}

@@ -139,6 +139,8 @@ internal sealed class GitLabTestHarness : IDisposable
     public void StubPipelines(object[] pipelines, string? etag = null) =>
         StubJson(ProjectApi + "/pipelines", pipelines, response: etag is null ? null : r => r.WithHeader("ETag", etag));
 
+    public void StubCommits(params object[] commits) => StubJson(ProjectApi + "/repository/commits", commits);
+
     public void StubGraphQl(object data, int priority = 10)
     {
         Server.Given(Request.Create().WithPath(Root + "api/graphql").UsingPost()).AtPriority(priority)
@@ -170,6 +172,7 @@ internal sealed class GitLabTestHarness : IDisposable
         StubMergeRequests("opened", [Fixtures.MergeRequest(WebBase, 562001, 11, "opened", Now.AddHours(-2), draft: true)]);
         StubMergeRequests("all", [Fixtures.MergeRequest(WebBase, 562002, 12, "merged", Now.AddHours(-1))]);
         StubPipelines([Fixtures.Pipeline(WebBase, 3028771539, 54761, "running", Now.AddMinutes(-10))], etag: "W/\"pipelines-v1\"");
+        StubCommits();
         StubCounts(open: 2, closed: 40, 7, 3);
     }
 

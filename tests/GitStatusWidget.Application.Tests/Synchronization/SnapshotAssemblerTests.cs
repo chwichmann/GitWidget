@@ -191,4 +191,32 @@ public sealed class SnapshotAssemblerTests
         snapshot.Builds.Should().HaveCount(SnapshotAssembler.MaxBuilds);
         snapshot.Builds[0].ExternalId.Should().Be("30");
     }
+
+    [Fact]
+    public void Commits_are_replaced_kept_when_unchanged_and_pruned_after_the_commit_window()
+    {
+        var first = Accept(SnapshotAssembler.Assemble(
+            null,
+            FullFetch([Issue(1)]) with { Commits = SectionUpdate<DateTimeOffset>.Replace([Now.AddHours(-30), Now.AddHours(-25), Now.AddHours(-1)]) },
+            Now,
+            WindowStart));
+        first.RecentCommits.Should().Equal([Now.AddHours(-1), Now.AddHours(-25)], "newest first; entries older than the window are dropped");
+
+        var later = Now.AddHours(2);
+        var unchanged = Accept(SnapshotAssembler.Assemble(first, Fetch(), later, later.AddDays(-14)));
+        unchanged.RecentCommits.Should().Equal([Now.AddHours(-1)], "kept from the previous snapshot, aged-out entries pruned");
+    }
+
+    [Fact]
+    public void Commits_are_absent_when_never_fetched_or_not_readable()
+    {
+        var never = Accept(SnapshotAssembler.Assemble(null, FullFetch([Issue(1)]), Now, WindowStart));
+        never.RecentCommits.Should().BeNull();
+
+        var withCommits = Accept(SnapshotAssembler.Assemble(
+            null, FullFetch([Issue(1)]) with { Commits = SectionUpdate<DateTimeOffset>.Replace([Now.AddHours(-1)]) }, Now, WindowStart));
+        var unreadable = Accept(SnapshotAssembler.Assemble(
+            withCommits, Fetch() with { Features = RepositoryFeatures.All with { Commits = false } }, Now, WindowStart));
+        unreadable.RecentCommits.Should().BeNull("a token that lost the permission must not keep showing an old count");
+    }
 }

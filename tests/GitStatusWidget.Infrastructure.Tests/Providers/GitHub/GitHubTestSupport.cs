@@ -164,7 +164,8 @@ internal sealed class GitHubFakeServer : IDisposable
         object? runs = null,
         object? counts = null,
         string repoPath = RepoPath,
-        object? repository = null)
+        object? repository = null,
+        IReadOnlyList<object>? commits = null)
     {
         open ??= [GitHubFixtures.Issue(1, GitHubFixtures.Now.AddHours(-5))];
         closed ??= [];
@@ -176,6 +177,7 @@ internal sealed class GitHubFakeServer : IDisposable
         Get($"{repoPath}/issues", open, query: [("state", "open")]);
         Get($"{repoPath}/issues", closed, query: [("state", "closed")]);
         Get($"{repoPath}/actions/runs", runs ?? GitHubFixtures.Runs(), etag: "W/\"runs-1\"");
+        Get($"{repoPath}/commits", commits ?? [], etag: "W/\"commits-1\"");
         var openIssueCount = open.Count(o => !JsonSerializer.Serialize(o).Contains("\"pull_request\"", StringComparison.Ordinal));
         GraphQl(counts ?? GitHubFixtures.Counts(openIssueCount, 0));
     }
@@ -350,6 +352,20 @@ internal static class GitHubFixtures
         run_started_at = Iso(created ?? Now.AddMinutes(-30)),
         updated_at = Iso((created ?? Now.AddMinutes(-30)).AddMinutes(5)),
         pull_requests = Array.Empty<object>(),
+    };
+
+    public static object Commit(string sha, DateTimeOffset committed, DateTimeOffset? authored = null) => new
+    {
+        sha,
+        node_id = $"C_{sha}",
+        commit = new
+        {
+            author = new { name = "Synthetic Author", email = "author@example.invalid", date = Iso(authored ?? committed) },
+            committer = new { name = "Synthetic Committer", email = "committer@example.invalid", date = Iso(committed) },
+            message = "Synthetic commit message that must never be logged.",
+        },
+        html_url = $"https://github.com/octo-org/widget/commit/{sha}",
+        parents = Array.Empty<object>(),
     };
 
     public static object Runs(params object[] runs) => new { total_count = runs.Length, workflow_runs = runs };

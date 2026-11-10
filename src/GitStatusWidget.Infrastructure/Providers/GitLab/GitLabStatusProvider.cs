@@ -129,7 +129,9 @@ internal sealed partial class GitLabStatusProvider : IRepositoryStatusProvider
 
         var identity = project is not null ? GitLabMapper.MapIdentity(project, api.ServerUri) : previous!.Repository;
         var defaultBranch = project is not null ? project.DefaultBranch : previous!.DefaultBranch;
-        var features = project is not null ? GitLabMapper.MapFeatures(project) : previous!.Features;
+        var features = project is not null
+            ? GitLabMapper.MapFeatures(project) with { Commits = previous?.Features.Commits ?? true }
+            : previous!.Features;
         var projectPath = $"projects/{projectId}";
 
         // 2. Metadata: labels and milestones (all states, inherited ones included).
@@ -218,6 +220,14 @@ internal sealed partial class GitLabStatusProvider : IRepositoryStatusProvider
             }
         }
 
+        // 4b. Commits of the default branch (issue #14), with every work-item poll.
+        SectionUpdate<DateTimeOffset>? commits = null;
+        if (reconcile || workItems)
+        {
+            (commits, var commitsReadable) = await FetchCommitsAsync(api, projectPath, defaultBranch, cancellationToken).ConfigureAwait(false);
+            features = features with { Commits = commitsReadable };
+        }
+
         // 5. Counts: with metadata/reconciliation, and when the issue delta changed something.
         CountsUpdate? counts = null;
         if (previous is null || refreshMetadata || reconcile || issueDeltaHadItems)
@@ -236,7 +246,7 @@ internal sealed partial class GitLabStatusProvider : IRepositoryStatusProvider
             }
         }
 
-        var fetch = new ProviderFetch(identity, defaultBranch, features, issues, changeRequests, milestones, labels, builds, counts);
+        var fetch = new ProviderFetch(identity, defaultBranch, features, issues, changeRequests, milestones, labels, builds, counts, commits);
         var newState = syncState
             .WithValues(
                 (ProjectIdKey, projectId),
@@ -417,6 +427,51 @@ internal sealed partial class GitLabStatusProvider : IRepositoryStatusProvider
         return (SectionUpdate<BuildSnapshot>.Replace(builds), true, state);
     }
 
+    /// <summary>
+    /// Reads the commit times of the default branch within <see cref="ProviderFetch.CommitWindow"/> (issue #14).
+    /// A disabled or unreadable repository (403, e.g. a Guest token on a private project) or a missing branch (404)
+    /// hides the counter instead of failing the fetch.
+    /// </summary>
+    private async Task<(SectionUpdate<DateTimeOffset>? Update, bool Readable)> FetchCommitsAsync(
+        GitLabApi api, string projectPath, string? defaultBranch, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(defaultBranch))
+        {
+            // Empty repository: no commits.
+            return (SectionUpdate<DateTimeOffset>.Replace([]), true);
+        }
+
+        var since = _time.GetUtcNow() - ProviderFetch.CommitWindow;
+        List<GitLabCommitDto> commits;
+        try
+        {
+            commits = await api.GetAllPagesAsync<GitLabCommitDto>(
+                $"{projectPath}/repository/commits",
+                GitLabApi.Query(
+                    ("ref_name", defaultBranch),
+                    ("since", GitLabMapper.FormatTimestamp(since)),
+                    ("per_page", GitLabApi.PageSize.ToString(CultureInfo.InvariantCulture))),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (ProviderFailureException ex) when (ex.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound
+            && ex is not GitLabApiException { IsInsufficientScope: true })
+        {
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                LogCommitsUnavailable(_logger, (int?)ex.StatusCode);
+            }
+
+            return (null, false);
+        }
+
+        var times = commits
+            .Select(c => c.CommittedDate ?? c.CreatedAt)
+            .OfType<DateTimeOffset>()
+            .Select(d => d.ToUniversalTime())
+            .ToList();
+        return (SectionUpdate<DateTimeOffset>.Replace(times), true);
+    }
+
     private async Task<CountsUpdate> FetchCountsAsync(
         GitLabApi api,
         RepositoryIdentity identity,
@@ -562,6 +617,9 @@ internal sealed partial class GitLabStatusProvider : IRepositoryStatusProvider
 
     [LoggerMessage(EventId = 1202, Level = LogLevel.Information, Message = "GitLab pipelines are not readable (403); builds are hidden")]
     private static partial void LogBuildsUnavailable(ILogger logger);
+
+    [LoggerMessage(EventId = 1204, Level = LogLevel.Information, Message = "GitLab commits are not readable (HTTP {Status}); the commit counter is hidden")]
+    private static partial void LogCommitsUnavailable(ILogger logger, int? status);
 
     [LoggerMessage(EventId = 1203, Level = LogLevel.Warning, Message = "GitLab GraphQL unavailable ({Kind}, HTTP {Status}); using issues_statistics (counts include all work-item types)")]
     private static partial void LogCountsFallback(ILogger logger, ProviderFailureKind kind, int? status);

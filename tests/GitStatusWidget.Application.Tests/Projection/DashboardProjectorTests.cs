@@ -245,4 +245,24 @@ public sealed class DashboardProjectorTests
         ActivityText.Headline(build).Should().Be("Pipeline failed on master");
         ActivityText.Headline(issue).Should().Be("Issue #12 closed");
     }
+
+    [Fact]
+    public void Commits_are_counted_in_the_same_period_as_the_issue_counters()
+    {
+        // Now: 2026-11-04 23:30 UTC = 2026-11-05 00:30 Zurich.
+        var snapshot = Snapshot(Issue(1)) with { RecentCommits = [Now.AddMinutes(-10), Now.AddHours(-2), Now.AddHours(-25)] };
+        var state = new RepositoryRuntimeState(Config(), snapshot, RepositoryHealthState.Healthy);
+
+        _projector.ProjectRow(state).Summary.CommitsToday.Should().Be(1, "only one commit since local midnight");
+        _projector.ProjectRow(state, DailyCountMode.Last24Hours).Summary.CommitsToday.Should().Be(2);
+        _projector.ProjectDashboard(state, DailyCountMode.Last24Hours).Summary.CommitsToday.Should().Be(2);
+    }
+
+    [Fact]
+    public void Commit_count_is_absent_when_the_history_is_not_available()
+    {
+        var state = new RepositoryRuntimeState(Config(), Snapshot(Issue(1)), RepositoryHealthState.Healthy);
+
+        _projector.ProjectRow(state).Summary.CommitsToday.Should().BeNull();
+    }
 }

@@ -94,6 +94,30 @@ public sealed class PersistenceTests : IDisposable
     }
 
     [Fact]
+    public async Task Snapshot_written_before_the_commit_counter_still_loads()
+    {
+        // Issue #14 added optional fields without a schema bump: a cache file of 0.1.2 has neither of them.
+        using var cache = new JsonRepositoryCache(_paths, NullLogger<JsonRepositoryCache>.Instance);
+        var id = Guid.NewGuid();
+        var commit = new DateTimeOffset(2026, 11, 4, 11, 0, 0, TimeSpan.Zero);
+        await cache.SaveAsync(id, new CachedRepositoryState(SampleSnapshot() with { RecentCommits = [commit] }, ProviderSyncState.Empty, new EventLedger()), CancellationToken.None);
+        (await cache.LoadAsync(id, CancellationToken.None)).Snapshot!.RecentCommits.Should().Equal(commit);
+
+        var snapshotFile = Path.Combine(_paths.CacheDirectory(id), "snapshot.json");
+        var text = await File.ReadAllTextAsync(snapshotFile);
+        var old = System.Text.RegularExpressions.Regex.Replace(text, ",\\s*\"recentCommits\"\\s*:\\s*\\[[^\\]]*\\]", string.Empty);
+        old = System.Text.RegularExpressions.Regex.Replace(old, ",\\s*\"commits\"\\s*:\\s*(true|false)", string.Empty);
+        old.Should().NotContain("ommits", "both new fields were removed from the document");
+        await File.WriteAllTextAsync(snapshotFile, old);
+
+        var loaded = await cache.LoadAsync(id, CancellationToken.None);
+
+        loaded.Snapshot.Should().NotBeNull();
+        loaded.Snapshot!.RecentCommits.Should().BeNull();
+        loaded.Snapshot.Issues.Should().BeEquivalentTo(SampleSnapshot().Issues);
+    }
+
+    [Fact]
     public async Task Future_cache_version_is_ignored_but_left_in_place()
     {
         using var cache = new JsonRepositoryCache(_paths, NullLogger<JsonRepositoryCache>.Instance);

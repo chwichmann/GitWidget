@@ -129,6 +129,8 @@ public sealed record RepositoryHeaderProjection(Guid RepositoryId, string Displa
 /// <param name="OpenChangeRequests">Open pull/merge requests.</param>
 /// <param name="ChangeRequestLabel">Presentation label: "pull requests" or "merge requests".</param>
 /// <param name="PeriodLabel">Label of the counting period: "today" or "last 24 h" (issue #9).</param>
+/// <param name="CommitsToday">Commits on the default branch in the counting period, or <see langword="null"/> when
+/// the commit history is not available (issue #14).</param>
 public sealed record SummaryProjection(
     int OpenIssues,
     int ClosedIssues,
@@ -138,7 +140,8 @@ public sealed record SummaryProjection(
     int OpenWithoutAssignee,
     int OpenChangeRequests,
     string ChangeRequestLabel,
-    string PeriodLabel = DashboardProjector.TodayLabel);
+    string PeriodLabel = DashboardProjector.TodayLabel,
+    int? CommitsToday = null);
 
 /// <summary>One row of the compact multi-repository widget.</summary>
 /// <param name="Header">Header.</param>

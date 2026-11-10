@@ -753,4 +753,41 @@ public sealed class GitLabFetchTests : IDisposable
         result.Fetch.Counts.Should().NotBeNull();
         Accept(snapshot, result.Fetch).ChangeRequests.Should().HaveCount(4);
     }
+
+    [Fact]
+    public async Task Commits_of_the_default_branch_are_read_since_the_commit_window()
+    {
+        _h.StubStandardProject();
+        _h.StubJson(
+            _h.ProjectApi + "/repository/commits",
+            new object[]
+            {
+                new { id = "aaa1", short_id = "aaa1", title = "Synthetic", committed_date = "2026-11-04T12:30:00.000+01:00", created_at = "2026-11-04T12:30:00.000+01:00" },
+                new { id = "aaa2", short_id = "aaa2", title = "Synthetic", committed_date = "2026-11-03T16:00:00.000+00:00", created_at = "2026-11-03T16:00:00.000+00:00" },
+            },
+            priority: 1);
+
+        var success = await FirstFetchAsync();
+
+        success.Fetch.Features.Commits.Should().BeTrue();
+        success.Fetch.Commits.Should().BeOfType<SectionUpdate<DateTimeOffset>.ReplaceSection>()
+            .Which.Items.Should().Equal(GitLabTestHarness.Now.AddMinutes(-30), GitLabTestHarness.Now.AddHours(-20));
+        var request = _h.Requests("/repository/commits").Single().RequestMessage!;
+        request.Query!["ref_name"].Single().Should().Be("main");
+        request.Query!["since"].Single().Should().Be("2026-11-03T10:00:00.000Z");
+        Accept(null, success.Fetch).RecentCommits.Should().Equal(GitLabTestHarness.Now.AddMinutes(-30), GitLabTestHarness.Now.AddHours(-20));
+    }
+
+    [Fact]
+    public async Task Commits_forbidden_hides_the_counter_without_failing()
+    {
+        _h.StubStandardProject();
+        _h.StubJson(_h.ProjectApi + "/repository/commits", new { message = "403 Forbidden" }, status: 403, priority: 1);
+
+        var success = await FirstFetchAsync();
+
+        success.Fetch.Features.Commits.Should().BeFalse();
+        success.Fetch.Commits.Should().BeNull();
+        Accept(null, success.Fetch).RecentCommits.Should().BeNull();
+    }
 }

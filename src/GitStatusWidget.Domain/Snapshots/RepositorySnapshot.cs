@@ -27,6 +27,8 @@ namespace GitStatusWidget.Domain.Snapshots;
 /// <param name="Labels">Repository labels.</param>
 /// <param name="ChangeRequests">Open change requests and those closed/merged since <paramref name="ClosedIssuesSince"/>.</param>
 /// <param name="Builds">Most recent builds, newest first.</param>
+/// <param name="RecentCommits">Commit times (committer date, UTC) of the default branch within roughly the last day,
+/// newest first; <see langword="null"/> when the history is not readable or was never fetched (issue #14).</param>
 public sealed record RepositorySnapshot(
     RepositoryIdentity Repository,
     DateTimeOffset RetrievedAt,
@@ -38,4 +40,5 @@ public sealed record RepositorySnapshot(
     IReadOnlyList<MilestoneSnapshot> Milestones,
     IReadOnlyList<LabelSnapshot> Labels,
     IReadOnlyList<ChangeRequestSnapshot> ChangeRequests,
-    IReadOnlyList<BuildSnapshot> Builds);
+    IReadOnlyList<BuildSnapshot> Builds,
+    IReadOnlyList<DateTimeOffset>? RecentCommits = null);

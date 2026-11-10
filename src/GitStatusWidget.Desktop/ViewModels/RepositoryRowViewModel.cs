@@ -44,11 +44,15 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
     [ObservableProperty]
     public partial int OpenedToday { get; set; }
 
+    /// <summary>Commits on the default branch in the counting period; zero when the history is not available (issue #14).</summary>
+    [ObservableProperty]
+    public partial int CommitsToday { get; set; }
+
     /// <summary>Suffix naming the counting period, e.g. " today" or " in 24 h" (issue #9).</summary>
     [ObservableProperty]
     public partial string PeriodSuffix { get; set; } = " today";
 
-    /// <summary>Period counters in one line, e.g. "2 new · 3 closed today"; parts that are zero are left out (issue #13).</summary>
+    /// <summary>Period counters in one line, e.g. "2 new · 3 closed · 5 commits today"; parts that are zero are left out (issues #13, #14).</summary>
     [ObservableProperty]
     public partial string PeriodText { get; set; } = string.Empty;
 
@@ -115,6 +119,7 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
         ClosedIssues = row.Summary.ClosedIssues;
         ClosedToday = row.Summary.ClosedToday;
         OpenedToday = row.Summary.OpenedToday;
+        CommitsToday = row.Summary.CommitsToday ?? 0;
         var last24Hours = row.Summary.PeriodLabel == DashboardProjector.Last24HoursLabel;
         PeriodSuffix = last24Hours ? " in 24 h" : " today";
         var parts = PeriodParts(row.Summary);
@@ -169,7 +174,7 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
 
     private static List<string> PeriodParts(SummaryProjection summary)
     {
-        var parts = new List<string>(2);
+        var parts = new List<string>(3);
         if (summary.OpenedToday > 0)
         {
             parts.Add(string.Create(CultureInfo.CurrentCulture, $"{summary.OpenedToday} new"));
@@ -180,12 +185,21 @@ public sealed partial class RepositoryRowViewModel : ObservableObject
             parts.Add(string.Create(CultureInfo.CurrentCulture, $"{summary.ClosedToday} closed"));
         }
 
+        if (summary.CommitsToday is > 0 and var commits)
+        {
+            parts.Add(Count(commits, "commit"));
+        }
+
         return parts;
     }
 
-    private static string PeriodDetail(SummaryProjection summary) => string.Create(
-        CultureInfo.CurrentCulture,
-        $"{Count(summary.OpenedToday, "issue")} created, {Count(summary.ClosedToday, "issue")} closed");
+    private static string PeriodDetail(SummaryProjection summary)
+    {
+        var issues = string.Create(
+            CultureInfo.CurrentCulture,
+            $"{Count(summary.OpenedToday, "issue")} created, {Count(summary.ClosedToday, "issue")} closed");
+        return summary.CommitsToday is { } commits ? $"{issues}, {Count(commits, "commit")} on the default branch" : issues;
+    }
 
     private static string Count(int value, string noun) =>
         string.Create(CultureInfo.CurrentCulture, $"{value} {noun}{(value == 1 ? string.Empty : "s")}");

@@ -68,6 +68,7 @@ All three are "personal access tokens" internally. The prefix is the instance's 
   | Merge requests | **no** | yes, unless MRs are set to "Only project members" | yes |
   | Pipelines | only if "Project-based pipeline visibility" is enabled | same as Guest | yes |
   | Labels and milestones | yes | yes | yes |
+  | Commits (`GET /projects/:id/repository/commits?ref_name=…&since=…`, commit counter, issue #14) | **no** | **no** | yes |
 
   The pipeline list endpoint checks both `read_pipeline` **and** `read_build` **[src]**, so a project with CI/CD disabled, or a role without job access, fails there.
 - A token with too low a role gets `403 Forbidden` or `404` instead of data. With a Guest token, **counts are silently lower**: confidential issues are left out of `issues_statistics` and `X-Total` and are never reported as an error.

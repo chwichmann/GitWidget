@@ -76,8 +76,9 @@ Create at *Settings → Developer settings → Fine-grained tokens*.
 | Issues: Read | `GET /repos/{o}/{r}/issues`, milestones, labels, GraphQL `issues` |
 | Pull requests: Read | `GET /repos/{o}/{r}/pulls`, GraphQL `pullRequests`; milestones/labels also accept it |
 | Actions: Read | `GET /repos/{o}/{r}/actions/runs`, `/actions/workflows` |
+| Contents: Read (optional) | `GET /repos/{o}/{r}/commits?sha={default_branch}&since=…` for the commit counter (issue #14). Without it the call answers 403/404 and the counter is hidden; nothing else depends on it. |
 
-  Contents, Checks, Commit statuses and all write permissions are **not** needed.
+  Checks, Commit statuses and all write permissions are **not** needed.
 - Expiry: configurable, up to "no expiration" unless an org or enterprise policy restricts it (URL pre-fill accepts 1–366 days). Plan for 401 on expiry. **Unverified**: the documented `GitHub-Authentication-Token-Expiration` response header (expiry timestamp for expiring PATs) could be used for an early warning.
 - Fine-grained PATs work with GraphQL and Search. Search results are limited to repos the token can read.
 - If a permission is missing, the error is `403 {"message":"Resource not accessible by personal access token"}`. The `X-Accepted-GitHub-Permissions` header lists the required permissions as `scope=level`, comma-separated, with alternatives separated by `;`. For example, `pull_requests=read,contents=read; issues=read,contents=read` means either set is enough.

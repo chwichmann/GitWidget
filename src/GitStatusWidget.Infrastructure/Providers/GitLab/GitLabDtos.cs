@@ -176,6 +176,16 @@ internal sealed class GitLabPipelineDto
     public DateTimeOffset? UpdatedAt { get; init; }
 }
 
+/// <summary><c>GET projects/:id/repository/commits</c> item (only the dates are used).</summary>
+internal sealed class GitLabCommitDto
+{
+    public string? Id { get; init; }
+
+    public DateTimeOffset? CommittedDate { get; init; }
+
+    public DateTimeOffset? CreatedAt { get; init; }
+}
+
 /// <summary><c>GET projects/:id/issues_statistics</c>.</summary>
 internal sealed class GitLabIssuesStatisticsDto
 {

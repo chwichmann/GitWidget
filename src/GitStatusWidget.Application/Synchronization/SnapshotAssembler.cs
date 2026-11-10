@@ -121,6 +121,15 @@ public static class SnapshotAssembler
             ? replaceBuilds.Items
             : previous!.Builds;
 
+        // Commits (issue #14): replaced as a whole; aged-out entries are pruned so the list stays small.
+        var commitsSince = retrievedAt - ProviderFetch.CommitWindow;
+        var commitSource = fetch.Commits is SectionUpdate<DateTimeOffset>.ReplaceSection replaceCommits
+            ? replaceCommits.Items
+            : previous?.RecentCommits;
+        var commits = fetch.Features.Commits
+            ? commitSource?.Where(c => c >= commitsSince).OrderByDescending(c => c).ToList()
+            : null;
+
         var snapshot = new RepositorySnapshot(
             fetch.Repository,
             retrievedAt,
@@ -136,7 +145,8 @@ public static class SnapshotAssembler
                 .OrderByDescending(b => b.CreatedAt)
                 .ThenBy(b => b.ExternalId, StringComparer.Ordinal)
                 .Take(MaxBuilds)
-                .ToList());
+                .ToList(),
+            commits);
 
         return new AssemblyResult.Accepted(snapshot, reconciliationRecommended);
     }

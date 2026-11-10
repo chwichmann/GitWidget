@@ -129,6 +129,28 @@ internal sealed class GitHubLabelDto
     public string? Description { get; init; }
 }
 
+/// <summary><c>GET /repos/{owner}/{repo}/commits</c> item.</summary>
+internal sealed class GitHubCommitDto
+{
+    public string? Sha { get; init; }
+
+    public GitHubCommitDetailDto? Commit { get; init; }
+}
+
+/// <summary>Git data of a commit (only the dates are used).</summary>
+internal sealed class GitHubCommitDetailDto
+{
+    public GitHubCommitSignatureDto? Author { get; init; }
+
+    public GitHubCommitSignatureDto? Committer { get; init; }
+}
+
+/// <summary>Author or committer signature of a commit.</summary>
+internal sealed class GitHubCommitSignatureDto
+{
+    public DateTimeOffset? Date { get; init; }
+}
+
 /// <summary><c>GET /repos/{owner}/{repo}/actions/runs</c>.</summary>
 internal sealed class GitHubWorkflowRunsDto
 {

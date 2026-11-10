@@ -200,7 +200,8 @@ public sealed class DashboardProjector
             open.Count(i => i.Assignees.Count == 0),
             snapshot.ChangeRequests.Count(c => c.State == ChangeRequestState.Open),
             label,
-            period);
+            period,
+            snapshot.RecentCommits?.Count(c => InPeriod(c, today, mode)));
     }
 
     private static MilestoneProgressProjection Milestone(MilestoneSnapshot m, DateOnly today) =>

@@ -34,6 +34,9 @@ internal sealed partial class GitHubStatusProvider : IRepositoryStatusProvider
     /// <summary>Delta pages read before falling back to a full reconciliation.</summary>
     public const int MaxDeltaPages = 10;
 
+    /// <summary>Maximum number of commit pages read per fetch; beyond it the commit counter is a lower bound.</summary>
+    public const int MaxCommitPages = 10;
+
     /// <summary>Overlap applied to the watermark (G18: <c>since</c>/<c>updated_at</c> have second precision).</summary>
     public static readonly TimeSpan DeltaOverlap = TimeSpan.FromMinutes(2);
 
@@ -121,6 +124,7 @@ internal sealed partial class GitHubStatusProvider : IRepositoryStatusProvider
         var builds = SectionUpdate<BuildSnapshot>.Unchanged;
         var issues = WorkItemUpdate<IssueSnapshot>.Unchanged;
         var changeRequests = WorkItemUpdate<ChangeRequestSnapshot>.Unchanged;
+        SectionUpdate<DateTimeOffset>? commits = null;
         CountsUpdate? counts = null;
         var needCounts = false;
         var watermark = ParseWatermark(context.SyncState.GetValue(WatermarkKey));
@@ -189,6 +193,12 @@ internal sealed partial class GitHubStatusProvider : IRepositoryStatusProvider
             features = features with { Builds = enabled };
         }
 
+        if (reconcile || scope.HasFlag(RefreshScope.WorkItems))
+        {
+            (commits, var commitsReadable) = await FetchCommitsAsync(session, cache, repositoryPath, identity.FullPath, defaultBranch, cancellationToken).ConfigureAwait(false);
+            features = features with { Commits = commitsReadable };
+        }
+
         if (needCounts)
         {
             counts = await FetchCountsAsync(session, owner, name, cancellationToken).ConfigureAwait(false);
@@ -210,7 +220,7 @@ internal sealed partial class GitHubStatusProvider : IRepositoryStatusProvider
         }
 
         return new ProviderFetchResult.Success(
-            new ProviderFetch(identity, defaultBranch, features, issues, changeRequests, milestones, labels, builds, counts),
+            new ProviderFetch(identity, defaultBranch, features, issues, changeRequests, milestones, labels, builds, counts, commits),
             syncState);
     }
 
@@ -484,6 +494,65 @@ internal sealed partial class GitHubStatusProvider : IRepositoryStatusProvider
         return (SectionUpdate<BuildSnapshot>.Replace(runs), true);
     }
 
+    /// <summary>
+    /// Reads the commit times of the default branch within <see cref="ProviderFetch.CommitWindow"/> (issue #14).
+    /// A missing permission (fine-grained tokens need "Contents: Read-only"), an empty repository or a missing
+    /// branch hides the counter instead of failing the fetch.
+    /// </summary>
+    private async Task<(SectionUpdate<DateTimeOffset>? Update, bool Readable)> FetchCommitsAsync(
+        GitHubApiSession session,
+        GitHubConditionalCache cache,
+        string repositoryPath,
+        string repositoryFullPath,
+        string? defaultBranch,
+        CancellationToken cancellationToken)
+    {
+        if (defaultBranch is null)
+        {
+            // Empty repository: no commits.
+            return (SectionUpdate<DateTimeOffset>.Replace([]), true);
+        }
+
+        // "since" is cut to the hour and left out of the cache key: the key stays stable (no stale entries pile up
+        // in the sync state) and an unchanged history keeps answering 304.
+        var now = _time.GetUtcNow();
+        var since = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, 0, 0, TimeSpan.Zero) - ProviderFetch.CommitWindow;
+        var branch = Uri.EscapeDataString(defaultBranch);
+        var key = GitHubConditionalCache.Key($"{repositoryPath}/commits?sha={branch}");
+        var relative = $"{repositoryPath}/commits?sha={branch}&since={Uri.EscapeDataString(since.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture))}&per_page={PageSize}";
+        PagedResult<GitHubCommitDto?> result;
+        try
+        {
+            result = await session.GetPagesAsync<GitHubCommitDto?>(
+                session.Endpoints.Rest(relative), cache.ValidatorFor(key, singlePageOnly: true), "commits", null, MaxCommitPages, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ProviderFailureException ex) when (ex.Kind == ProviderFailureKind.AuthorizationFailed
+            || ex.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Conflict)
+        {
+            // 403: no "Contents" permission; 404: branch missing or contents hidden; 409: empty repository.
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                LogCommitsUnavailable(_logger, repositoryFullPath, (int?)ex.StatusCode);
+            }
+
+            return (null, false);
+        }
+
+        if (result.NotModified)
+        {
+            cache.RecordNotModified(key);
+            return (null, true);
+        }
+
+        cache.Record(key, result.ETag, result.Pages);
+        var times = result.Items
+            .Select(c => c?.Commit?.Committer?.Date ?? c?.Commit?.Author?.Date)
+            .OfType<DateTimeOffset>()
+            .Select(d => d.ToUniversalTime())
+            .ToList();
+        return (SectionUpdate<DateTimeOffset>.Replace(times), true);
+    }
+
     private static async Task<CountsUpdate> FetchCountsAsync(GitHubApiSession session, string owner, string name, CancellationToken cancellationToken)
     {
         int? open = null;
@@ -671,6 +740,9 @@ internal sealed partial class GitHubStatusProvider : IRepositoryStatusProvider
 
     [LoggerMessage(EventId = 2103, Level = LogLevel.Warning, Message = "Unknown GitHub workflow run state {Status}/{Conclusion}; mapped to Unknown")]
     private static partial void LogUnknownBuildState(ILogger logger, string status, string conclusion);
+
+    [LoggerMessage(EventId = 2105, Level = LogLevel.Information, Message = "GitHub commits of {Repository} are not readable (HTTP {Status}); the commit counter is hidden. Fine-grained tokens need the \"Contents: Read-only\" permission")]
+    private static partial void LogCommitsUnavailable(ILogger logger, string repository, int? status);
 
     [LoggerMessage(EventId = 2104, Level = LogLevel.Debug, Message = "GitHub reconciliation {Repository}: {Pages} pages, {OpenIssues} open issues, {OpenPullRequests} open pull requests, {Closed} recently closed")]
     private static partial void LogReconciled(ILogger logger, string repository, int pages, int openIssues, int openPullRequests, int closed);

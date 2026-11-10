@@ -72,6 +72,37 @@ public sealed class DailyCountModeTests
     }
 
     [Fact]
+    public void Widget_row_shows_commits_next_to_the_issue_counters()
+    {
+        var config = Config();
+        var snapshot = Snapshot(config, issues: [Issue(1, WorkItemState.Closed, updatedAt: T0.AddHours(-3))]) with
+        {
+            RecentCommits = [T0.AddHours(-1), T0.AddHours(-2), T0.AddHours(-25)],
+        };
+        _hub.Publish(State(config, snapshot));
+        var controller = new FakeSynchronizationController(new AppSettings { DailyCountMode = DailyCountMode.Last24Hours });
+
+        using var vm = new WidgetViewModel(_hub, new DashboardProjector(_time), controller, _ui, new FakeNavigator(), _time);
+
+        var row = vm.Rows.Single();
+        row.CommitsToday.Should().Be(2);
+        row.PeriodText.Should().Be("1 closed · 2 commits in 24 h");
+        row.PeriodToolTip.Should().Be("In the last 24 hours: 0 issues created, 1 issue closed, 2 commits on the default branch");
+    }
+
+    [Fact]
+    public void Widget_row_uses_the_singular_for_one_commit()
+    {
+        var config = Config();
+        _hub.Publish(State(config, Snapshot(config) with { RecentCommits = [T0.AddHours(-1)] }));
+        var controller = new FakeSynchronizationController(new AppSettings { DailyCountMode = DailyCountMode.Last24Hours });
+
+        using var vm = new WidgetViewModel(_hub, new DashboardProjector(_time), controller, _ui, new FakeNavigator(), _time);
+
+        vm.Rows.Single().PeriodText.Should().Be("1 commit in 24 h");
+    }
+
+    [Fact]
     public void Rolling_counter_ages_out_without_new_events()
     {
         var config = Config();

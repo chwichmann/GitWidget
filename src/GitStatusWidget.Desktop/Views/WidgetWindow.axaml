@@ -86,7 +86,7 @@
                     </StackPanel>
                     <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="subtle" Margin="0,4,0,0" IsVisible="{Binding !HasData}" Text="{Binding HealthText}" />
 
-                    <!-- Period line: new / closed in the counting period (issue #13) -->
+                    <!-- Period line: new / closed issues and commits in the counting period (issues #13, #14) -->
                     <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="caption" Margin="3,3,0,0" TextTrimming="CharacterEllipsis"
                                IsVisible="{Binding HasPeriodActivity}" Text="{Binding PeriodText}" ToolTip.Tip="{Binding PeriodToolTip}" />
 

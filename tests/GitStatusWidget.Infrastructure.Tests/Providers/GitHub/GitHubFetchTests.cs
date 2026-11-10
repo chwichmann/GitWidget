@@ -234,6 +234,7 @@ public sealed class GitHubFetchTests : IDisposable
         var (previous, state) = await BaselineAsync();
         state = state.WithRequests([new ConditionalRequestState(GitHubConditionalCache.Key(DeltaRelative), "W/\"delta-1\"", null, Now, 1)]);
         _h.Api.NotModified($"{GitHubFakeServer.RepoPath}/issues", "W/\"delta-1\"", [("state", "all")]);
+        _h.Api.NotModified($"{GitHubFakeServer.RepoPath}/commits", "W/\"commits-1\"");
 
         var success = await _h.FetchSuccessAsync(Next(previous, state, RefreshScope.WorkItems));
 
@@ -246,7 +247,8 @@ public sealed class GitHubFetchTests : IDisposable
         success.Fetch.Repository.Should().Be(previous.Repository);
         success.SyncState.GetValue(GitHubStatusProvider.WatermarkKey).Should().Be(state.GetValue(GitHubStatusProvider.WatermarkKey));
         success.SyncState.GetRequest(GitHubConditionalCache.Key(DeltaRelative))!.ETag.Should().Be("W/\"delta-1\"", "the 200 validator is kept verbatim (G7)");
-        var request = _h.Api.Requests.Should().ContainSingle().Which;
+        _h.Api.Requests.Should().HaveCount(2, "the issue delta and the commit history, both conditional");
+        var request = _h.Api.Requests.Single(r => r.RequestMessage!.AbsolutePath.EndsWith("/issues", StringComparison.Ordinal));
         GitHubFakeServer.Header(request, "If-None-Match").Should().Be("W/\"delta-1\"");
 
         SnapshotAssembler.Assemble(previous, success.Fetch, Now, GitHubFixtures.ClosedWindowStart)
@@ -553,5 +555,61 @@ public sealed class GitHubFetchTests : IDisposable
         success.Fetch.Features.Should().Be(new RepositoryFeatures(Issues: false, ChangeRequests: false, Builds: true));
         success.Fetch.Counts!.OpenIssues.Should().BeNull();
         SnapshotAssembler.Assemble(null, success.Fetch, Now, GitHubFixtures.ClosedWindowStart).Should().BeOfType<AssemblyResult.Accepted>();
+    }
+
+    [Fact]
+    public async Task Commits_of_the_default_branch_are_read_since_the_commit_window()
+    {
+        _h.Api.StandardRepository(commits:
+        [
+            GitHubFixtures.Commit("aaa1", Now.AddHours(-1)),
+            GitHubFixtures.Commit("aaa2", Now.AddHours(-20), authored: Now.AddDays(-5)),
+        ]);
+
+        var success = await _h.FetchSuccessAsync();
+
+        success.Fetch.Features.Commits.Should().BeTrue();
+        success.Fetch.Commits.Should().BeOfType<SectionUpdate<DateTimeOffset>.ReplaceSection>()
+            .Which.Items.Should().Equal([Now.AddHours(-1), Now.AddHours(-20)], "the committer date counts, not the author date");
+        var request = _h.Api.Requests.Single(r => r.RequestMessage!.AbsolutePath.EndsWith("/commits", StringComparison.Ordinal));
+        QueryValue(request, "sha").Should().Be("main");
+        QueryValue(request, "since").Should().Be("2026-11-03T10:00:00Z", "26 hours before the current hour");
+        SnapshotAssembler.Assemble(null, success.Fetch, Now, GitHubFixtures.ClosedWindowStart)
+            .Should().BeOfType<AssemblyResult.Accepted>().Which.Snapshot.RecentCommits.Should().Equal(Now.AddHours(-1), Now.AddHours(-20));
+    }
+
+    [Fact]
+    public async Task Token_without_contents_permission_hides_commits_instead_of_failing()
+    {
+        _h.Api.StandardRepository();
+        _h.Api.Get($"{GitHubFakeServer.RepoPath}/commits", new { message = "Resource not accessible by personal access token" }, status: 403, priority: 1);
+
+        var success = await _h.FetchSuccessAsync();
+
+        success.Fetch.Features.Commits.Should().BeFalse();
+        success.Fetch.Commits.Should().BeNull();
+        SnapshotAssembler.Assemble(null, success.Fetch, Now, GitHubFixtures.ClosedWindowStart)
+            .Should().BeOfType<AssemblyResult.Accepted>().Which.Snapshot.RecentCommits.Should().BeNull();
+        _h.Logger.Entries.Should().Contain(e => e.Contains("Contents: Read-only", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Commits_304_keeps_the_previous_commit_list()
+    {
+        _h.Api.StandardRepository(commits: [GitHubFixtures.Commit("aaa1", Now.AddHours(-1))]);
+        var first = await _h.FetchSuccessAsync();
+        var previous = SnapshotAssembler.Assemble(null, first.Fetch, Now, GitHubFixtures.ClosedWindowStart)
+            .Should().BeOfType<AssemblyResult.Accepted>().Which.Snapshot;
+        _h.Api.Server.Reset();
+        _h.Api.Get($"{GitHubFakeServer.RepoPath}/issues", Array.Empty<object>(), query: [("state", "all")]);
+        _h.Api.NotModified($"{GitHubFakeServer.RepoPath}/commits", "W/\"commits-1\"");
+        _h.Time.Now = Now.AddHours(1); // another "since", same cache key
+
+        var success = await _h.FetchSuccessAsync(Next(previous, first.SyncState, RefreshScope.WorkItems));
+
+        success.Fetch.Commits.Should().BeNull();
+        success.Fetch.Features.Commits.Should().BeTrue();
+        SnapshotAssembler.Assemble(previous, success.Fetch, Now.AddHours(1), GitHubFixtures.ClosedWindowStart)
+            .Should().BeOfType<AssemblyResult.Accepted>().Which.Snapshot.RecentCommits.Should().Equal(Now.AddHours(-1));
     }
 }
