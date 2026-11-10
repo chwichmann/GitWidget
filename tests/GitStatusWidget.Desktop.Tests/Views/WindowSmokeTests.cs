@@ -133,8 +133,10 @@ public sealed class WindowSmokeTests
         var window = new WidgetWindow(new MotionPreference(new FakeReducedMotionDetector { Enabled = true })) { DataContext = vm };
         window.Show();
         Pump(window);
-        var root = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "WidgetRoot");
+        var root = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "WidgetBackground");
         root.Opacity.Should().Be(0.6);
+        root.GetVisualDescendants().Should().BeEmpty("only the background fill fades, never the content");
+        window.GetVisualDescendants().OfType<TextBlock>().Should().OnlyContain(t => t.Opacity == 1);
 
         vm.IdleOpacity = 1;
         Pump(window);

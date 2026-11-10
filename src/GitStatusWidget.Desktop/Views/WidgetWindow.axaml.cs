@@ -16,6 +16,7 @@ public partial class WidgetWindow : Window
     private readonly MotionPreference? _motion;
     private readonly DragReorder _reorder;
     private WidgetViewModel? _observed;
+    private bool _translucent;
 
     public WidgetWindow()
     {
@@ -84,10 +85,13 @@ public partial class WidgetWindow : Window
         }
     }
 
-    /// <summary>Translucent while the mouse is elsewhere, less so while it is over the widget (issue #15).</summary>
+    /// <summary>
+    /// Makes the background fill translucent while the mouse is elsewhere and less so while it is over the widget
+    /// (issue #15). Only the fill fades; the content stays fully opaque and readable.
+    /// </summary>
     private void ApplyOpacity(bool animate)
     {
-        if (WidgetRoot is null)
+        if (WidgetBackground is null)
         {
             return;
         }
@@ -95,10 +99,21 @@ public partial class WidgetWindow : Window
         var target = _observed is null
             ? 1
             : _observed.PreviewOpacity ?? (IsPointerOver ? _observed.HoverOpacity : _observed.IdleOpacity);
-        WidgetRoot.Transitions = animate && _motion?.ReduceMotion != true
+        WidgetBackground.Transitions = animate && _motion?.ReduceMotion != true
             ? [new DoubleTransition { Property = OpacityProperty, Duration = FadeDuration }]
             : null;
-        WidgetRoot.Opacity = target;
+        WidgetBackground.Opacity = target;
+
+        // With a translucent fill the desktop itself should show through: the blur material behind the window is
+        // light and would turn a dark widget gray. Blur stays for the opaque (default) widget.
+        var translucent = _observed is not null && (_observed.IdleOpacity < 1 || _observed.PreviewOpacity < 1);
+        if (translucent != _translucent)
+        {
+            _translucent = translucent;
+            TransparencyLevelHint = translucent
+                ? [WindowTransparencyLevel.Transparent]
+                : [WindowTransparencyLevel.AcrylicBlur, WindowTransparencyLevel.Blur, WindowTransparencyLevel.Transparent];
+        }
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)

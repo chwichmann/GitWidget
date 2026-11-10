@@ -15,12 +15,13 @@
         TransparencyLevelHint="AcrylicBlur, Blur, Transparent"
         Background="Transparent"
         WindowStartupLocation="Manual">
-  <Border x:Name="WidgetRoot"
-          CornerRadius="12"
-          Background="{DynamicResource WidgetBackgroundBrush}"
-          BorderBrush="{DynamicResource WidgetBorderBrush}"
-          BorderThickness="1"
-          ClipToBounds="True">
+  <Panel>
+    <!-- Background fill: the only part that becomes translucent (issue #15); texts and bars stay solid -->
+    <Border x:Name="WidgetBackground" CornerRadius="12" Background="{DynamicResource WidgetBackgroundBrush}" />
+    <Border CornerRadius="12"
+            BorderBrush="{DynamicResource WidgetBorderBrush}"
+            BorderThickness="1"
+            ClipToBounds="True">
     <DockPanel>
       <!-- Header: drag area -->
       <Grid x:Name="DragArea" DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" Margin="12,8,6,4" Background="Transparent">
@@ -117,5 +118,6 @@
         </ScrollViewer>
       </Panel>
     </DockPanel>
-  </Border>
+    </Border>
+  </Panel>
 </Window>
