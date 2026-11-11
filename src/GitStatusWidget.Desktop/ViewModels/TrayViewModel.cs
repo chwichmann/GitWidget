@@ -36,7 +36,6 @@ public sealed partial class TrayViewModel : ObservableObject, IDisposable
     private readonly IAppNavigator _navigator;
     private readonly IUiDispatcher _ui;
     private readonly UpdateChecker? _updates;
-    private Uri? _updateUrl;
 
     public TrayViewModel(IRepositoryStatusHub hub, ISynchronizationController controller, SettingsService settings, IAppNavigator navigator, IUiDispatcher ui, UpdateChecker? updates = null)
     {
@@ -118,7 +117,7 @@ public sealed partial class TrayViewModel : ObservableObject, IDisposable
     private void OpenDiagnostics() => _navigator.ShowDiagnostics();
 
     [RelayCommand]
-    private void OpenUpdate() => _navigator.OpenInBrowser(_updateUrl);
+    private void OpenUpdate() => _navigator.ShowUpdate();
 
     [RelayCommand]
     private void Exit() => _navigator.ExitApplication();
@@ -140,7 +139,6 @@ public sealed partial class TrayViewModel : ObservableObject, IDisposable
     {
         var latest = state.Status == UpdateStatus.Available ? state.Latest : null;
         UpdateAvailable = latest is not null;
-        _updateUrl = latest?.PageUrl;
         UpdateMenuText = latest is null ? "Update available" : $"Update available: GitWidget {latest.Version}…";
     }
 

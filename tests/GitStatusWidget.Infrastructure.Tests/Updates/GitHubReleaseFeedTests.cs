@@ -39,7 +39,7 @@ public sealed class GitHubReleaseFeedTests : IDisposable
         new Controller(settings),
         TimeProvider.System,
         NullLogger<GitHubReleaseFeed>.Instance,
-        new ReleaseFeedOptions { ApiBase = new Uri($"{_server.Url}/api/v3/") },
+        new ReleaseFeedOptions { ApiBase = new Uri($"{_server.Url}/api/v3/"), AssetName = "GitWidget-test-rid.zip" },
         new ProviderHttpOptions { RetryDelays = [] });
 
     private void ServeReleases(int status = 200, string body = ReleasesJson) =>
@@ -56,6 +56,34 @@ public sealed class GitHubReleaseFeedTests : IDisposable
         var releases = result.Should().BeOfType<ReleaseFeedResult.Success>().Subject.Releases;
         releases.Select(r => r.Tag).Should().BeEquivalentTo(["v0.2.0-beta.1", "v0.1.2"]);
         releases.Single(r => r.Tag == "v0.1.2").PageUrl.ToString().Should().Be("https://github.com/chwichmann/GitWidget/releases/tag/v0.1.2");
+    }
+
+    [Fact]
+    public async Task Download_for_the_running_system_is_read_with_its_checksum()
+    {
+        // Issue #19. Shape of the live release list: every asset carries "digest": "sha256:<hex>".
+        var digest = new string('d', 64);
+        ServeReleases(body: $$"""
+            [
+              { "tag_name": "v0.2.0", "html_url": "https://github.com/chwichmann/GitWidget/releases/tag/v0.2.0", "draft": false, "prerelease": false,
+                "assets": [
+                  { "name": "GitWidget-linux-x64.tar.gz", "browser_download_url": "https://github.com/chwichmann/GitWidget/releases/download/v0.2.0/GitWidget-linux-x64.tar.gz", "size": 41, "digest": "sha256:{{new string('1', 64)}}" },
+                  { "name": "GitWidget-test-rid.zip", "browser_download_url": "https://github.com/chwichmann/GitWidget/releases/download/v0.2.0/GitWidget-test-rid.zip", "size": 69, "digest": "sha256:{{digest}}" }
+                ] },
+              { "tag_name": "v0.1.9", "html_url": "https://github.com/chwichmann/GitWidget/releases/tag/v0.1.9", "draft": false, "prerelease": false,
+                "assets": [ { "name": "GitWidget-test-rid.zip", "browser_download_url": "https://github.com/x.zip", "size": 69, "digest": null } ] },
+              { "tag_name": "v0.1.8", "html_url": "https://github.com/chwichmann/GitWidget/releases/tag/v0.1.8", "draft": false, "prerelease": false }
+            ]
+            """);
+
+        var result = await Feed(new AppSettings()).GetReleasesAsync(CancellationToken.None);
+
+        var releases = result.Should().BeOfType<ReleaseFeedResult.Success>().Subject.Releases;
+        releases.Single(r => r.Tag == "v0.2.0").Asset.Should().Be(new ReleaseAsset("GitWidget-test-rid.zip",
+            new Uri("https://github.com/chwichmann/GitWidget/releases/download/v0.2.0/GitWidget-test-rid.zip"), 69, digest));
+        releases.Single(r => r.Tag == "v0.1.9").Asset!.Sha256.Should().BeNull();
+        releases.Single(r => r.Tag == "v0.1.8").Asset.Should().BeNull();
+        ReleaseFeedOptions.DefaultAssetName().Should().MatchRegex(@"^GitWidget-(win|osx|linux)-[a-z0-9]+\.(zip|tar\.gz)$");
     }
 
     [Fact]

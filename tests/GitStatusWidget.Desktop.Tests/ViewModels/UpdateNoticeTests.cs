@@ -41,9 +41,9 @@ public sealed class UpdateNoticeTests
         await checker.CheckAsync(CancellationToken.None);
 
         vm.UpdateAvailable.Should().BeTrue();
-        vm.UpdateToolTip.Should().Be("GitWidget 0.1.2 is available (running 0.1.1) – click to open the release page");
+        vm.UpdateToolTip.Should().Be("GitWidget 0.1.2 is available (running 0.1.1) – click to update");
         vm.OpenUpdateCommand.Execute(null);
-        _navigator.Calls.Should().ContainSingle().Which.Should().Contain(ReleasePage.ToString());
+        _navigator.Calls.Should().Equal("ShowUpdate()");
     }
 
     [Fact]

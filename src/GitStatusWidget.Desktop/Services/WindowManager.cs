@@ -55,6 +55,7 @@ public sealed partial class WindowManager : IAppNavigator, IToastPresenter, IDis
     private SettingsWindow? _settingsWindow;
     private DiagnosticsWindow? _diagnosticsWindow;
     private UsageWindow? _usageWindow;
+    private UpdateWindow? _updateWindow;
     private WindowStateModel _state = new();
     private DispatcherTimer? _saveTimer;
 
@@ -208,6 +209,27 @@ public sealed partial class WindowManager : IAppNavigator, IToastPresenter, IDis
         vm.Refresh();
         _usageWindow.Show();
         _usageWindow.Activate();
+    }
+
+    public void ShowUpdate()
+    {
+        if (_updateWindow is null)
+        {
+            var vm = _services.GetRequiredService<UpdateViewModel>();
+            var window = new UpdateWindow { DataContext = vm };
+            vm.CloseRequested += (_, _) => window.Close();
+            window.Closing += (_, e) => e.Cancel = vm.IsBusy && !vm.CanCancel; // Never abandon a file swap half-way.
+            window.Closed += (_, _) =>
+            {
+                vm.CancelInstallCommand.Execute(null);
+                vm.Dispose();
+                _updateWindow = null;
+            };
+            _updateWindow = window;
+        }
+
+        _updateWindow.Show();
+        _updateWindow.Activate();
     }
 
     public void OpenInBrowser(Uri? uri)

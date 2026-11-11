@@ -6,7 +6,18 @@ namespace GitStatusWidget.Application.Updates;
 /// <param name="PageUrl">Release page in the browser.</param>
 /// <param name="IsPrerelease">Marked as pre-release by the publisher.</param>
 /// <param name="PublishedAt">Publication time.</param>
-public sealed record ReleaseInfo(SemanticVersion Version, string Tag, Uri PageUrl, bool IsPrerelease, DateTimeOffset? PublishedAt);
+public sealed record ReleaseInfo(SemanticVersion Version, string Tag, Uri PageUrl, bool IsPrerelease, DateTimeOffset? PublishedAt)
+{
+    /// <summary>Download for the running system, if the release has one (issue #19).</summary>
+    public ReleaseAsset? Asset { get; init; }
+}
+
+/// <summary>A downloadable file of a release.</summary>
+/// <param name="Name">File name, e.g. <c>GitWidget-win-x64.zip</c>.</param>
+/// <param name="DownloadUrl">Download address.</param>
+/// <param name="Size">Size in bytes.</param>
+/// <param name="Sha256">SHA-256 of the file as hex, when the publisher reports one.</param>
+public sealed record ReleaseAsset(string Name, Uri DownloadUrl, long Size, string? Sha256);
 
 /// <summary>Result of reading the release feed.</summary>
 public abstract record ReleaseFeedResult

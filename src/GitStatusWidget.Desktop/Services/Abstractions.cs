@@ -28,6 +28,9 @@ public interface IAppNavigator
     /// <summary>Opens the full display of the Claude usage (issue #17).</summary>
     void ShowClaudeUsage();
 
+    /// <summary>Opens the update dialog: install the new release in place or open its release page (issue #19).</summary>
+    void ShowUpdate();
+
     void OpenInBrowser(Uri? uri);
 
     void ExitApplication();

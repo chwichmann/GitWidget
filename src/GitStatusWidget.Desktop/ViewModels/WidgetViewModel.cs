@@ -115,8 +115,6 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string UpdateToolTip { get; set; } = string.Empty;
 
-    private Uri? UpdateUrl { get; set; }
-
     [RelayCommand]
     private void Refresh()
     {
@@ -144,7 +142,7 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     private void Hide() => _navigator.HideWidget();
 
     [RelayCommand]
-    private void OpenUpdate() => _navigator.OpenInBrowser(UpdateUrl);
+    private void OpenUpdate() => _navigator.ShowUpdate();
 
     /// <summary>Starts a drag reorder: background updates no longer re-sort the rows until it is committed.</summary>
     public void BeginReorder() => _reordering = true;
@@ -203,10 +201,9 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     {
         var latest = state.Status == UpdateStatus.Available ? state.Latest : null;
         UpdateAvailable = latest is not null;
-        UpdateUrl = latest?.PageUrl;
         UpdateToolTip = latest is null
             ? string.Empty
-            : $"GitWidget {latest.Version} is available (running {state.CurrentVersion}) – click to open the release page";
+            : $"GitWidget {latest.Version} is available (running {state.CurrentVersion}) – click to update";
     }
 
     private void OnRepositoryRemoved(object? sender, Guid id) => _ui.Post(() =>

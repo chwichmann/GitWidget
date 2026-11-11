@@ -18,6 +18,9 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // In-place update (issue #19): a version started by the updater waits for its predecessor, then cleans up.
+        GitStatusWidget.Infrastructure.Updates.UpdateServiceCollectionExtensions.CompletePendingUpdate(args, AppContext.BaseDirectory);
+
         // Step 1: single instance. A second launch asks the running instance to show itself and exits.
         using var instance = new SingleInstanceCoordinator();
         if (!instance.IsPrimary)

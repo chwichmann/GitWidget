@@ -18,6 +18,8 @@ Every push to `main` builds self-contained binaries, so no .NET installation is 
 
 Tagged versions (`v*`) are additionally published as GitHub releases.
 
+**Updating:** when a newer release exists, ⬆ appears in the widget (and an entry in the tray menu). On Windows, **Update to x.y.z and restart** downloads the release, checks it against the SHA-256 checksum GitHub publishes for it, replaces the files and restarts; nothing is installed without that click. The previous version is kept as `*.gitwidget-old` until the new one has started, and is restored if the new one cannot be started. On macOS and Linux, or when GitWidget may not write to its own folder, the dialog offers the release page instead.
+
 ## First steps
 
 1. **Start GitWidget.** On Windows the binary is unsigned, so SmartScreen may warn ("More info" → "Run anyway"). It runs without administrator rights. GitWidget lives in the tray (Windows notification area / macOS menu bar). Closing the widget only hides it; use **Exit** in the tray menu to quit.

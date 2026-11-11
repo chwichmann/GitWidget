@@ -87,6 +87,10 @@ internal static class DesktopServices
             TimeSpan.FromMinutes(2)));
         services.AddHostedService(sp => sp.GetRequiredService<UpdateChecker>());
 
+        // In-place update (issue #19): only on the explicit click in the update dialog.
+        services.AddUpdateInstaller();
+        services.AddTransient<UpdateViewModel>();
+
         // Claude usage footer (issue #17): polls only while the setting is on.
         services.AddClaudeUsage();
         services.AddClaudeUsageHistoryStore();

@@ -20,6 +20,19 @@ public sealed class ReleaseFeedOptions
 
     /// <summary>GitHub REST base (overridable for tests).</summary>
     public Uri ApiBase { get; init; } = new("https://api.github.com/");
+
+    /// <summary>Name of the release file for the running system, e.g. <c>GitWidget-win-x64.zip</c> (issue #19).</summary>
+    public string AssetName { get; init; } = DefaultAssetName();
+
+    /// <summary>Release file name as the CI publishes it for an operating system and architecture.</summary>
+    /// <returns>The file name; for systems without a published build a name no release carries.</returns>
+    public static string DefaultAssetName()
+    {
+        var architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
+        return OperatingSystem.IsWindows() ? $"GitWidget-win-{architecture}.zip"
+            : OperatingSystem.IsMacOS() ? $"GitWidget-osx-{architecture}.zip"
+            : $"GitWidget-linux-{architecture}.tar.gz";
+    }
 }
 
 /// <summary>
@@ -97,7 +110,7 @@ internal sealed class GitHubReleaseFeed : IReleaseFeed
             var releases = response.Deserialize<List<ReleaseDto>>(ProviderJson.SnakeCase)
                 .Where(r => r is { Draft: false } && Uri.TryCreate(r.HtmlUrl, UriKind.Absolute, out _))
                 .Select(r => SemanticVersion.TryParse(r.TagName, out var version)
-                    ? new ReleaseInfo(version, r.TagName!, new Uri(r.HtmlUrl!), r.Prerelease, r.PublishedAt)
+                    ? new ReleaseInfo(version, r.TagName!, new Uri(r.HtmlUrl!), r.Prerelease, r.PublishedAt) { Asset = SelectAsset(r.Assets) }
                     : null)
                 .OfType<ReleaseInfo>()
                 .ToList();
@@ -143,10 +156,34 @@ internal sealed class GitHubReleaseFeed : IReleaseFeed
         configuration.ServerUri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase)
         || configuration.ServerUri.Host.Equals("www.github.com", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Picks the download for the running system (issue #19); its checksum comes as <c>sha256:&lt;hex&gt;</c>.</summary>
+    private ReleaseAsset? SelectAsset(List<AssetDto>? assets)
+    {
+        var asset = assets?.FirstOrDefault(a => string.Equals(a?.Name, _options.AssetName, StringComparison.OrdinalIgnoreCase));
+        if (asset is null || asset.Size <= 0 || !Uri.TryCreate(asset.BrowserDownloadUrl, UriKind.Absolute, out var url))
+        {
+            return null;
+        }
+
+        const string Prefix = "sha256:";
+        var digest = asset.Digest?.Trim();
+        var sha256 = digest is not null && digest.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase) && digest.Length == Prefix.Length + 64
+            ? digest[Prefix.Length..]
+            : null;
+        return new ReleaseAsset(asset.Name!, url, asset.Size, sha256);
+    }
+
     private sealed record ReleaseDto(
         [property: JsonPropertyName("tag_name")] string? TagName,
         [property: JsonPropertyName("html_url")] string? HtmlUrl,
         bool Draft,
         bool Prerelease,
-        [property: JsonPropertyName("published_at")] DateTimeOffset? PublishedAt);
+        [property: JsonPropertyName("published_at")] DateTimeOffset? PublishedAt,
+        List<AssetDto>? Assets = null);
+
+    private sealed record AssetDto(
+        string? Name,
+        [property: JsonPropertyName("browser_download_url")] string? BrowserDownloadUrl,
+        long Size,
+        string? Digest);
 }
