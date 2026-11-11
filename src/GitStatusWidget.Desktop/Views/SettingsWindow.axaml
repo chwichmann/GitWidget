@@ -179,6 +179,8 @@
           </Grid>
           <CheckBox Content="Check for new GitWidget versions (shows ⬆ in the widget)" IsChecked="{Binding CheckForUpdates}" />
           <CheckBox Content="Include pre-releases" IsChecked="{Binding IncludePrereleaseUpdates}" IsEnabled="{Binding CheckForUpdates}" Margin="24,0,0,0" />
+          <CheckBox x:Name="ShowClaudeUsageBox" Content="Show the Claude usage at the bottom of the widget" IsChecked="{Binding ShowClaudeUsage}"
+                    ToolTip.Tip="Session and weekly limits of your Claude subscription, read with the Claude Code sign-in on this computer. Click the footer for the full display." />
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="Theme" VerticalAlignment="Center" />
             <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding Theme}" MinWidth="120" />

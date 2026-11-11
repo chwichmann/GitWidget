@@ -40,6 +40,30 @@
         <Button Grid.Column="5" Classes="icon" Content="✕" Command="{Binding HideCommand}" ToolTip.Tip="Hide to tray" />
       </Grid>
 
+      <!-- Claude usage (issue #17): optional footer at the very bottom; clicking it opens the full display -->
+      <Button x:Name="UsageFooter" DockPanel.Dock="Bottom" Classes="usage-footer" Margin="4,0,4,5"
+              DataContext="{Binding Usage}" x:DataType="vm:ClaudeUsageViewModel"
+              IsVisible="{Binding IsEnabled}" Command="{Binding OpenDetailsCommand}"
+              ToolTip.Tip="Claude usage – click for details">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="caption" Text="Claude usage" FontWeight="SemiBold" />
+          <ItemsControl ItemsSource="{Binding Limits}" IsVisible="{Binding HasLimits}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ClaudeUsageLimitViewModel">
+                <Grid ColumnDefinitions="62,*,46" Margin="0,1" ToolTip.Tip="{Binding ToolTip}">
+                  <TextBlock Classes="caption" Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  <ProgressBar Grid.Column="1" Classes="usage" Classes.warning="{Binding IsWarning}" Classes.critical="{Binding IsCritical}"
+                               Minimum="0" Maximum="100" Value="{Binding Percent}" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Classes="caption" Text="{Binding PercentText}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Classes="caption" Classes.problem="{Binding IsProblem}" Text="{Binding StatusText}" IsVisible="{Binding HasStatus}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Button>
+      <Border DockPanel.Dock="Bottom" Height="1" Margin="12,0,12,3" Background="{DynamicResource DividerBrush}" IsVisible="{Binding Usage.IsEnabled}" />
+
       <!-- Footer -->
       <TextBlock DockPanel.Dock="Bottom" Classes="caption" Margin="12,4,12,10" Text="{Binding FooterText}" />
 

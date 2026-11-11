@@ -98,6 +98,39 @@
     <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
   </Style>
 
+  <!-- Claude usage (issue #17): bars in the widget footer and, larger, in the full display -->
+  <Style Selector="ProgressBar.usage">
+    <Setter Property="Height" Value="5" />
+    <Setter Property="MinHeight" Value="5" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Background" Value="{DynamicResource ProgressTrackBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource InfoBrush}" />
+  </Style>
+  <Style Selector="ProgressBar.usage.large">
+    <Setter Property="Height" Value="8" />
+    <Setter Property="MinHeight" Value="8" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+  <Style Selector="ProgressBar.usage.warning">
+    <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+  </Style>
+  <Style Selector="ProgressBar.usage.critical">
+    <Setter Property="Foreground" Value="{DynamicResource FailureBrush}" />
+  </Style>
+  <Style Selector="TextBlock.problem">
+    <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+  </Style>
+  <Style Selector="Button.usage-footer">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+
   <!-- One-shot animations (architecture §16.4). Classes are added and removed by code-behind only for new events. -->
   <Style Selector="Border.anim-closed">
     <Style.Animations>

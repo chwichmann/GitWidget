@@ -59,6 +59,11 @@ public sealed record AppSettings
     /// <summary>Transparency of the widget while the mouse is over it, in percent; never above the idle value.</summary>
     public int WidgetHoverTransparency { get; init; }
 
+    /// <summary>
+    /// Show the usage of the Claude subscription in a widget footer, read with the sign-in of Claude Code (issue #17).
+    /// </summary>
+    public bool ShowClaudeUsage { get; init; }
+
     /// <summary>Theme: <c>System</c>, <c>Light</c> or <c>Dark</c>.</summary>
     public string Theme { get; init; } = "System";
 

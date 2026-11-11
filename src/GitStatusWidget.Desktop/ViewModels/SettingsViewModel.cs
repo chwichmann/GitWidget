@@ -136,6 +136,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IncludePrereleaseUpdates { get; set; }
 
+    /// <summary>Show the Claude usage footer in the widget (issue #17).</summary>
+    [ObservableProperty]
+    public partial bool ShowClaudeUsage { get; set; }
+
     [ObservableProperty]
     public partial string Theme { get; set; } = "System";
 
@@ -291,6 +295,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 IncludePrereleaseUpdates = IncludePrereleaseUpdates,
                 WidgetIdleTransparency = Math.Clamp(WidgetIdleTransparency, 0, AppSettings.MaxWidgetTransparency),
                 WidgetHoverTransparency = Math.Clamp(WidgetHoverTransparency, 0, Math.Clamp(WidgetIdleTransparency, 0, AppSettings.MaxWidgetTransparency)),
+                ShowClaudeUsage = ShowClaudeUsage,
                 Theme = Theme,
             };
             await _settings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
@@ -383,6 +388,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         WidgetIdleTransparency = settings.WidgetIdleTransparency;
         WidgetHoverTransparency = settings.WidgetHoverTransparency;
         _transparencyLoaded = true;
+        ShowClaudeUsage = settings.ShowClaudeUsage;
         Theme = settings.Theme;
         Selected = Repositories.FirstOrDefault();
     }

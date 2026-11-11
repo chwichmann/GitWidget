@@ -59,6 +59,8 @@ internal sealed class FakeNavigator : IAppNavigator
 
     public void ShowDiagnostics() => Calls.Add("ShowDiagnostics()");
 
+    public void ShowClaudeUsage() => Calls.Add("ShowClaudeUsage()");
+
     public void OpenInBrowser(Uri? uri) => Calls.Add($"OpenInBrowser({uri})");
 
     public void ExitApplication() => Calls.Add("Exit");

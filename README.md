@@ -29,6 +29,8 @@ Tagged versions (`v*`) are additionally published as GitHub releases.
 4. **GitLab behind an access gateway** (for example Citrix) that only admits git clients: set the **User-Agent** of the repository to a git-compatible value such as `GitWidget/0.1.2 git/2.47.0` (the **Use git-compatible** button fills it in). If a gateway intercepts the API anyway, the widget and the dashboard say so ("Blocked by a login gateway") and the dashboard offers **Use suggested User-Agent…**; also check the VPN.
 5. Click **Test connection**, then **Save**.
 
+**Claude usage (optional):** *Settings → General → Show the Claude usage at the bottom of the widget* adds a footer with the limits of your Claude subscription (5-hour session, weekly, model-specific weekly) as bars; they turn amber from 75 % and red from 90 %. Click the footer for the full display with the reset times. It uses the existing Claude Code sign-in on this computer (`~/.claude/.credentials.json`, on macOS the Claude Code keychain item): GitWidget only reads it, sends it only to `api.anthropic.com`, and never renews it. If the sign-in has expired, start `claude` once. The usage endpoint is not a documented API and may change.
+
 Logs (no tokens, no issue contents) are written to `%LocalAppData%\GitStatusWidget\logs` on Windows (`~/Library/Application Support/GitStatusWidget/logs` on macOS). Settings and the snapshot cache live next to them.
 
 ## Build from source

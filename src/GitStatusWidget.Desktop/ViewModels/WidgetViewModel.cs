@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using GitStatusWidget.Application.Projection;
 using GitStatusWidget.Application.Synchronization;
 using GitStatusWidget.Application.Updates;
+using GitStatusWidget.Application.Usage;
 using GitStatusWidget.Desktop.Services;
 using GitStatusWidget.Domain.Events;
 
@@ -21,6 +22,7 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     private readonly ITimer _freshnessTimer;
     private readonly SettingsService? _settings;
     private readonly UpdateChecker? _updates;
+    private readonly ClaudeUsageMonitor? _usageMonitor;
     private bool _reordering;
 
     public WidgetViewModel(
@@ -31,8 +33,11 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         IAppNavigator navigator,
         TimeProvider time,
         SettingsService? settings = null,
-        UpdateChecker? updates = null)
+        UpdateChecker? updates = null,
+        ClaudeUsageMonitor? usage = null)
     {
+        _usageMonitor = usage;
+        Usage = new ClaudeUsageViewModel(usage, ui, navigator, time);
         _settings = settings;
         if (_settings is not null)
         {
@@ -68,6 +73,9 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     }
 
     public ObservableCollection<RepositoryRowViewModel> Rows { get; } = [];
+
+    /// <summary>Claude usage footer and its full display (issue #17).</summary>
+    public ClaudeUsageViewModel Usage { get; }
 
     [ObservableProperty]
     public partial bool IsEmpty { get; set; } = true;
@@ -110,7 +118,11 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
     private Uri? UpdateUrl { get; set; }
 
     [RelayCommand]
-    private void Refresh() => _controller.RequestRefresh();
+    private void Refresh()
+    {
+        _controller.RequestRefresh();
+        _usageMonitor?.RequestRefresh();
+    }
 
     [RelayCommand]
     private void OpenDashboard(RepositoryRowViewModel? row)
@@ -179,6 +191,7 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
             _settings.WidgetTransparencyPreviewChanged -= OnTransparencyPreviewChanged;
         }
 
+        Usage.Dispose();
         _freshnessTimer.Dispose();
     }
 
@@ -288,6 +301,7 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
             row.UpdateFreshness(now);
         }
 
+        Usage.UpdateFreshness();
         UpdateFooter();
     }
 
@@ -296,6 +310,9 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         PreviewOpacity = null;
         ApplyTransparency(settings);
         UpdateFreshness();
+
+        // The usage footer may have been switched on or off: let the monitor notice now instead of at its next poll.
+        _usageMonitor?.RequestRefresh();
     });
 
     private void OnTransparencyPreviewChanged(object? sender, WidgetTransparencyPreview? preview) => _ui.Post(() =>

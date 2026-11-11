@@ -54,6 +54,7 @@ public sealed partial class WindowManager : IAppNavigator, IToastPresenter, IDis
     private DashboardWindow? _dashboard;
     private SettingsWindow? _settingsWindow;
     private DiagnosticsWindow? _diagnosticsWindow;
+    private UsageWindow? _usageWindow;
     private WindowStateModel _state = new();
     private DispatcherTimer? _saveTimer;
 
@@ -183,6 +184,30 @@ public sealed partial class WindowManager : IAppNavigator, IToastPresenter, IDis
 
         _diagnosticsWindow.Show();
         _diagnosticsWindow.Activate();
+    }
+
+    public void ShowClaudeUsage()
+    {
+        var vm = _services.GetRequiredService<WidgetViewModel>().Usage;
+        if (_usageWindow is null)
+        {
+            _usageWindow = new UsageWindow { DataContext = vm };
+            _usageWindow.Closed += (_, _) => _usageWindow = null;
+            if (_widget is { IsVisible: true } widget && widget.Screens.ScreenFromWindow(widget) is { } screen)
+            {
+                // Next to the widget: on its left, or on its right when there is no room.
+                var gap = (int)(8 * screen.Scaling);
+                var width = (int)Math.Ceiling(_usageWindow.Width * screen.Scaling);
+                var left = widget.Position.X - width - gap;
+                var x = left >= screen.WorkingArea.X ? left : widget.Position.X + (int)Math.Ceiling(widget.Width * screen.Scaling) + gap;
+                _usageWindow.WindowStartupLocation = WindowStartupLocation.Manual;
+                _usageWindow.Position = Clamp(_usageWindow, new PixelPoint(x, widget.Position.Y), _usageWindow.Width, 320, screen.DisplayName);
+            }
+        }
+
+        vm.Refresh();
+        _usageWindow.Show();
+        _usageWindow.Activate();
     }
 
     public void OpenInBrowser(Uri? uri)

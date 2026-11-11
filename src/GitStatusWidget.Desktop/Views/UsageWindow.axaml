@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GitStatusWidget.Desktop.ViewModels"
+        x:Class="GitStatusWidget.Desktop.Views.UsageWindow"
+        x:DataType="vm:ClaudeUsageViewModel"
+        Title="GitWidget – Claude usage"
+        Width="360"
+        SizeToContent="Height"
+        CanResize="False"
+        Icon="/Assets/gitwidget.png"
+        Background="{DynamicResource PageBackgroundBrush}"
+        WindowStartupLocation="CenterScreen">
+  <!-- Full display of the Claude usage (issue #17); opened by clicking the usage footer of the widget. -->
+  <StackPanel Margin="16,14,16,16" Spacing="10">
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="section" Text="Claude usage" Margin="0" />
+        <TextBlock Classes="caption" Text="{Binding PlanText}" IsVisible="{Binding HasPlan}" />
+      </StackPanel>
+      <Button Grid.Column="1" Classes="icon" Content="⟳" Command="{Binding RefreshCommand}" ToolTip.Tip="Refresh now" VerticalAlignment="Top" />
+    </Grid>
+
+    <TextBlock x:Name="StatusLine" Text="{Binding StatusText}" IsVisible="{Binding HasStatus}" TextWrapping="Wrap"
+               Classes.problem="{Binding IsProblem}" />
+
+    <ItemsControl x:Name="LimitList" ItemsSource="{Binding Limits}" IsVisible="{Binding HasLimits}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Spacing="8" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:ClaudeUsageLimitViewModel">
+          <Border Classes="card" Padding="12,10">
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+              <TextBlock Text="{Binding DetailTitle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+              <TextBlock Grid.Column="1" Text="{Binding UsedText}" Margin="8,0,0,0" />
+              <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Classes="usage large"
+                           Classes.warning="{Binding IsWarning}" Classes.critical="{Binding IsCritical}"
+                           Minimum="0" Maximum="100" Value="{Binding Percent}" />
+              <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="caption" Text="{Binding ResetText}" IsVisible="{Binding HasReset}" />
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBlock Classes="caption" Text="{Binding UpdatedText}" IsVisible="{Binding HasUpdated}" />
+    <TextBlock Classes="caption" TextWrapping="Wrap"
+               Text="Read with the Claude Code sign-in on this computer. GitWidget only reads it and never changes or renews it." />
+  </StackPanel>
+</Window>

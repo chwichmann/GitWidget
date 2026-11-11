@@ -25,6 +25,9 @@ public interface IAppNavigator
 
     void ShowDiagnostics();
 
+    /// <summary>Opens the full display of the Claude usage (issue #17).</summary>
+    void ShowClaudeUsage();
+
     void OpenInBrowser(Uri? uri);
 
     void ExitApplication();

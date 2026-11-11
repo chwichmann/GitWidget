@@ -4,6 +4,7 @@ using GitStatusWidget.Application.Persistence;
 using GitStatusWidget.Application.Projection;
 using GitStatusWidget.Application.Synchronization;
 using GitStatusWidget.Application.Updates;
+using GitStatusWidget.Application.Usage;
 using GitStatusWidget.Desktop.Services;
 using GitStatusWidget.Desktop.ViewModels;
 using GitStatusWidget.Infrastructure.Credentials;
@@ -13,6 +14,7 @@ using GitStatusWidget.Infrastructure.Platform;
 using GitStatusWidget.Infrastructure.Providers.GitHub;
 using GitStatusWidget.Infrastructure.Providers.GitLab;
 using GitStatusWidget.Infrastructure.Updates;
+using GitStatusWidget.Infrastructure.Usage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -84,6 +86,15 @@ internal static class DesktopServices
             AppInfo.Version,
             TimeSpan.FromMinutes(2)));
         services.AddHostedService(sp => sp.GetRequiredService<UpdateChecker>());
+
+        // Claude usage footer (issue #17): polls only while the setting is on.
+        services.AddClaudeUsage();
+        services.AddSingleton(sp => new ClaudeUsageMonitor(
+            sp.GetRequiredService<IClaudeUsageSource>(),
+            sp.GetRequiredService<ISynchronizationController>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<ILogger<ClaudeUsageMonitor>>()));
+        services.AddHostedService(sp => sp.GetRequiredService<ClaudeUsageMonitor>());
 
         // Desktop
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
