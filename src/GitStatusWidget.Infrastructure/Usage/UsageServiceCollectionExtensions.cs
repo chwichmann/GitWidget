@@ -1,7 +1,9 @@
 using GitStatusWidget.Application.Usage;
+using GitStatusWidget.Infrastructure.Persistence;
 using GitStatusWidget.Infrastructure.Providers.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace GitStatusWidget.Infrastructure.Usage;
 
@@ -26,6 +28,21 @@ public static class UsageServiceCollectionExtensions
             sp.GetRequiredService<IHttpClientFactory>(),
             sp.GetRequiredService<TimeProvider>(),
             options));
+        return services;
+    }
+
+    /// <summary>
+    /// Registers <see cref="IClaudeUsageHistoryStore"/> keeping the usage history in the data directory. Requires an
+    /// <see cref="AppPaths"/> registration.
+    /// </summary>
+    /// <param name="services">Service collection.</param>
+    /// <returns>The same collection.</returns>
+    public static IServiceCollection AddClaudeUsageHistoryStore(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<IClaudeUsageHistoryStore>(sp => new JsonClaudeUsageHistoryStore(
+            sp.GetRequiredService<AppPaths>(),
+            sp.GetRequiredService<ILogger<JsonClaudeUsageHistoryStore>>()));
         return services;
     }
 }

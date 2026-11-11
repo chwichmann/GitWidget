@@ -64,6 +64,12 @@ public sealed record AppSettings
     /// </summary>
     public bool ShowClaudeUsage { get; init; }
 
+    /// <summary>
+    /// Reference time in hours for the Claude usage pace estimate: the estimate extrapolates the usage increase of the
+    /// last hours (issue #18). One of <see cref="Usage.ClaudeUsagePace.LookbackHours"/>.
+    /// </summary>
+    public int ClaudePaceLookbackHours { get; init; } = Usage.ClaudeUsagePace.DefaultLookbackHours;
+
     /// <summary>Theme: <c>System</c>, <c>Light</c> or <c>Dark</c>.</summary>
     public string Theme { get; init; } = "System";
 
@@ -77,6 +83,9 @@ public sealed record AppSettings
             Repositories = Repositories.Select(r => r.Normalize()).ToList(),
             WidgetIdleTransparency = idle,
             WidgetHoverTransparency = Math.Clamp(WidgetHoverTransparency, 0, idle),
+            ClaudePaceLookbackHours = Usage.ClaudeUsagePace.LookbackHours.Contains(ClaudePaceLookbackHours)
+                ? ClaudePaceLookbackHours
+                : Usage.ClaudeUsagePace.DefaultLookbackHours,
         };
     }
 }

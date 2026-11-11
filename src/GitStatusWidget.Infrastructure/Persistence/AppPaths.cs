@@ -27,6 +27,9 @@ public sealed class AppPaths
     /// <summary><c>window-state.json</c>.</summary>
     public string WindowStateFile => Path.Combine(Root, "window-state.json");
 
+    /// <summary><c>claude-usage-history.json</c>: recent usage percentages for the pace estimate (issue #18).</summary>
+    public string ClaudeUsageHistoryFile => Path.Combine(Root, "claude-usage-history.json");
+
     /// <summary>Log directory.</summary>
     public string LogsDirectory => Path.Combine(Root, "logs");
 

@@ -181,6 +181,11 @@
           <CheckBox Content="Include pre-releases" IsChecked="{Binding IncludePrereleaseUpdates}" IsEnabled="{Binding CheckForUpdates}" Margin="24,0,0,0" />
           <CheckBox x:Name="ShowClaudeUsageBox" Content="Show the Claude usage at the bottom of the widget" IsChecked="{Binding ShowClaudeUsage}"
                     ToolTip.Tip="Session and weekly limits of your Claude subscription, read with the Claude Code sign-in on this computer. Click the footer for the full display." />
+          <StackPanel Orientation="Horizontal" Spacing="8" Margin="24,0,0,0" IsEnabled="{Binding ShowClaudeUsage}"
+                      ToolTip.Tip="The estimate of when a limit will be reached extrapolates the usage of this time. Short times react quickly but jump; long times are steadier. Until enough history is collected, the average since the last reset is used.">
+            <TextBlock Text="Estimate the pace from" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding PaceLookbacks}" SelectedItem="{Binding PaceLookback}" MinWidth="160" />
+          </StackPanel>
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="Theme" VerticalAlignment="Center" />
             <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding Theme}" MinWidth="120" />

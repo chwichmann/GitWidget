@@ -89,11 +89,13 @@ internal static class DesktopServices
 
         // Claude usage footer (issue #17): polls only while the setting is on.
         services.AddClaudeUsage();
+        services.AddClaudeUsageHistoryStore();
         services.AddSingleton(sp => new ClaudeUsageMonitor(
             sp.GetRequiredService<IClaudeUsageSource>(),
             sp.GetRequiredService<ISynchronizationController>(),
             sp.GetRequiredService<TimeProvider>(),
-            sp.GetRequiredService<ILogger<ClaudeUsageMonitor>>()));
+            sp.GetRequiredService<ILogger<ClaudeUsageMonitor>>(),
+            sp.GetRequiredService<IClaudeUsageHistoryStore>()));
         services.AddHostedService(sp => sp.GetRequiredService<ClaudeUsageMonitor>());
 
         // Desktop

@@ -37,7 +37,7 @@ public sealed partial class WidgetViewModel : ObservableObject, IDisposable
         ClaudeUsageMonitor? usage = null)
     {
         _usageMonitor = usage;
-        Usage = new ClaudeUsageViewModel(usage, ui, navigator, time);
+        Usage = new ClaudeUsageViewModel(usage, controller, ui, navigator, time);
         _settings = settings;
         if (_settings is not null)
         {

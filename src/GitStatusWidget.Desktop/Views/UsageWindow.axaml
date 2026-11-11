@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:GitStatusWidget.Desktop.ViewModels"
+        xmlns:ctl="using:GitStatusWidget.Desktop.Controls"
         x:Class="GitStatusWidget.Desktop.Views.UsageWindow"
         x:DataType="vm:ClaudeUsageViewModel"
         Title="GitWidget – Claude usage"
@@ -32,13 +33,20 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:ClaudeUsageLimitViewModel">
           <Border Classes="card" Padding="12,10">
-            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="6">
               <TextBlock Text="{Binding DetailTitle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
               <TextBlock Grid.Column="1" Text="{Binding UsedText}" Margin="8,0,0,0" />
-              <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Classes="usage large"
-                           Classes.warning="{Binding IsWarning}" Classes.critical="{Binding IsCritical}"
-                           Minimum="0" Maximum="100" Value="{Binding Percent}" />
+              <Panel Grid.Row="1" Grid.ColumnSpan="2" ToolTip.Tip="The tick marks even use: the share of the time that has passed.">
+                <ProgressBar Classes="usage large"
+                             Classes.warning="{Binding IsWarning}" Classes.critical="{Binding IsCritical}"
+                             Minimum="0" Maximum="100" Value="{Binding Percent}" VerticalAlignment="Center" />
+                <ctl:PaceMarker Height="14" Position="{Binding MarkerPercent}" IsVisible="{Binding HasMarker}"
+                                Brush="{DynamicResource PaceMarkerBrush}" />
+              </Panel>
               <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="caption" Text="{Binding ResetText}" IsVisible="{Binding HasReset}" />
+              <!-- Pace estimate (issue #18) -->
+              <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Classes="caption" Classes.problem="{Binding IsPaceWarning}" TextWrapping="Wrap"
+                         Text="{Binding PaceText}" IsVisible="{Binding HasPace}" />
             </Grid>
           </Border>
         </DataTemplate>

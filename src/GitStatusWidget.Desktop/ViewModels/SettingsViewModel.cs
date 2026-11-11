@@ -140,6 +140,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool ShowClaudeUsage { get; set; }
 
+    /// <summary>Reference times for the Claude usage pace estimate (issue #18).</summary>
+    public IReadOnlyList<PaceLookbackChoice> PaceLookbacks { get; } =
+        [.. Application.Usage.ClaudeUsagePace.LookbackHours.Select(h => new PaceLookbackChoice(h, h == 1 ? "the last hour" : $"the last {h} hours"))];
+
+    [ObservableProperty]
+    public partial PaceLookbackChoice? PaceLookback { get; set; }
+
     [ObservableProperty]
     public partial string Theme { get; set; } = "System";
 
@@ -296,6 +303,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 WidgetIdleTransparency = Math.Clamp(WidgetIdleTransparency, 0, AppSettings.MaxWidgetTransparency),
                 WidgetHoverTransparency = Math.Clamp(WidgetHoverTransparency, 0, Math.Clamp(WidgetIdleTransparency, 0, AppSettings.MaxWidgetTransparency)),
                 ShowClaudeUsage = ShowClaudeUsage,
+                ClaudePaceLookbackHours = PaceLookback?.Hours ?? Application.Usage.ClaudeUsagePace.DefaultLookbackHours,
                 Theme = Theme,
             };
             await _settings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
@@ -389,9 +397,17 @@ public sealed partial class SettingsViewModel : ObservableObject
         WidgetHoverTransparency = settings.WidgetHoverTransparency;
         _transparencyLoaded = true;
         ShowClaudeUsage = settings.ShowClaudeUsage;
+        PaceLookback = PaceLookbacks.FirstOrDefault(c => c.Hours == settings.ClaudePaceLookbackHours)
+            ?? PaceLookbacks.First(c => c.Hours == Application.Usage.ClaudeUsagePace.DefaultLookbackHours);
         Theme = settings.Theme;
         Selected = Repositories.FirstOrDefault();
     }
+}
+
+/// <summary>Choice of the reference time for the Claude usage pace estimate.</summary>
+public sealed record PaceLookbackChoice(int Hours, string Title)
+{
+    public override string ToString() => Title;
 }
 
 /// <summary>Choice of the counting period shown in Settings.</summary>

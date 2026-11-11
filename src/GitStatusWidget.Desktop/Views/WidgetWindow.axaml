@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:GitStatusWidget.Desktop.ViewModels"
         xmlns:c="using:GitStatusWidget.Desktop.Converters"
+        xmlns:ctl="using:GitStatusWidget.Desktop.Controls"
         x:Class="GitStatusWidget.Desktop.Views.WidgetWindow"
         x:DataType="vm:WidgetViewModel"
         Title="GitWidget"
@@ -52,8 +53,13 @@
               <DataTemplate x:DataType="vm:ClaudeUsageLimitViewModel">
                 <Grid ColumnDefinitions="62,*,46" Margin="0,1" ToolTip.Tip="{Binding ToolTip}">
                   <TextBlock Classes="caption" Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                  <ProgressBar Grid.Column="1" Classes="usage" Classes.warning="{Binding IsWarning}" Classes.critical="{Binding IsCritical}"
-                               Minimum="0" Maximum="100" Value="{Binding Percent}" VerticalAlignment="Center" />
+                  <Panel Grid.Column="1" VerticalAlignment="Center">
+                    <ProgressBar Classes="usage" Classes.warning="{Binding IsWarning}" Classes.critical="{Binding IsCritical}"
+                                 Minimum="0" Maximum="100" Value="{Binding Percent}" VerticalAlignment="Center" />
+                    <!-- Pace (issue #18): tick where even consumption would be now -->
+                    <ctl:PaceMarker Height="11" Position="{Binding MarkerPercent}" IsVisible="{Binding HasMarker}"
+                                    Brush="{DynamicResource PaceMarkerBrush}" />
+                  </Panel>
                   <TextBlock Grid.Column="2" Classes="caption" Text="{Binding PercentText}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                 </Grid>
               </DataTemplate>

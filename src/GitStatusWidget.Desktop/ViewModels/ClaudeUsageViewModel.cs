@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GitStatusWidget.Application.Synchronization;
 using GitStatusWidget.Application.Usage;
 using GitStatusWidget.Desktop.Services;
 
@@ -14,13 +15,15 @@ namespace GitStatusWidget.Desktop.ViewModels;
 public sealed partial class ClaudeUsageViewModel : ObservableObject, IDisposable
 {
     private readonly ClaudeUsageMonitor? _monitor;
+    private readonly ISynchronizationController? _controller;
     private readonly IUiDispatcher _ui;
     private readonly IAppNavigator _navigator;
     private readonly TimeProvider _time;
     private ClaudeUsageState _state = new(ClaudeUsageStatus.Disabled, null, null, null);
 
-    public ClaudeUsageViewModel(ClaudeUsageMonitor? monitor, IUiDispatcher ui, IAppNavigator navigator, TimeProvider time)
+    public ClaudeUsageViewModel(ClaudeUsageMonitor? monitor, ISynchronizationController? controller, IUiDispatcher ui, IAppNavigator navigator, TimeProvider time)
     {
+        _controller = controller;
         _monitor = monitor;
         _ui = ui;
         _navigator = navigator;
@@ -101,23 +104,22 @@ public sealed partial class ClaudeUsageViewModel : ObservableObject, IDisposable
         var limits = state.Snapshot?.Limits ?? [];
 
         IsEnabled = state.Status != ClaudeUsageStatus.Disabled;
-        if (Limits.Count == limits.Count)
-        {
-            // Same rows: update in place so the views keep their controls.
-            for (var i = 0; i < limits.Count; i++)
-            {
-                Limits[i].Update(limits[i], now);
-            }
-        }
-        else
+        if (Limits.Count != limits.Count)
         {
             Limits.Clear();
-            foreach (var limit in limits)
+            foreach (var _ in limits)
             {
-                var row = new ClaudeUsageLimitViewModel();
-                row.Update(limit, now);
-                Limits.Add(row);
+                Limits.Add(new ClaudeUsageLimitViewModel());
             }
+        }
+
+        // Rows are updated in place so the views keep their controls.
+        var lookback = TimeSpan.FromHours(_controller?.Settings.Normalize().ClaudePaceLookbackHours ?? ClaudeUsagePace.DefaultLookbackHours);
+        for (var i = 0; i < limits.Count; i++)
+        {
+            var limit = limits[i];
+            var pace = ClaudeUsagePace.Estimate(limit, _monitor?.History.Samples(limit) ?? [], now, lookback);
+            Limits[i].Update(limit, now, pace);
         }
 
         HasLimits = Limits.Count > 0;
@@ -184,7 +186,28 @@ public sealed partial class ClaudeUsageLimitViewModel : ObservableObject
     [ObservableProperty]
     public partial string ToolTip { get; set; } = string.Empty;
 
-    public void Update(ClaudeUsageLimit limit, DateTimeOffset now)
+    /// <summary>
+    /// Pace estimate (issue #18), for example "At the pace of the last 2 hr: limit reached Thu 14:00"; empty while
+    /// there is no basis for one.
+    /// </summary>
+    [ObservableProperty]
+    public partial string PaceText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool HasPace { get; set; }
+
+    /// <summary>At the current pace the limit is reached before it resets (or it is used up already).</summary>
+    [ObservableProperty]
+    public partial bool IsPaceWarning { get; set; }
+
+    /// <summary>Share of the window that has passed, in percent: where even consumption would be now.</summary>
+    [ObservableProperty]
+    public partial double MarkerPercent { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasMarker { get; set; }
+
+    public void Update(ClaudeUsageLimit limit, DateTimeOffset now, ClaudePaceEstimate? pace = null)
     {
         ArgumentNullException.ThrowIfNull(limit);
         (Title, DetailTitle) = limit.Kind switch
@@ -200,7 +223,90 @@ public sealed partial class ClaudeUsageLimitViewModel : ObservableObject
         HasReset = ResetText.Length > 0;
         IsCritical = limit.Percent >= CriticalPercent;
         IsWarning = !IsCritical && limit.Percent >= WarningPercent;
-        ToolTip = HasReset ? $"{DetailTitle}: {UsedText} · {ResetText}" : $"{DetailTitle}: {UsedText}";
+        PaceText = FormatPace(pace, now);
+        HasPace = PaceText.Length > 0;
+        IsPaceWarning = pace is { LimitReached: true } or { ReachedAt: not null };
+        var elapsed = ClaudeUsagePace.ElapsedPercent(limit, now);
+        MarkerPercent = elapsed ?? 0;
+        HasMarker = elapsed is not null;
+
+        var lines = new List<string> { HasReset ? $"{DetailTitle}: {UsedText} · {ResetText}" : $"{DetailTitle}: {UsedText}" };
+        if (HasPace)
+        {
+            lines.Add(PaceText);
+        }
+
+        if (HasMarker)
+        {
+            lines.Add($"The tick marks even use: {Format.Percent((int)Math.Round(MarkerPercent, MidpointRounding.AwayFromZero))} of the time has passed.");
+        }
+
+        ToolTip = string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>Text of a pace estimate; names the basis so the number can be judged.</summary>
+    internal static string FormatPace(ClaudePaceEstimate? pace, DateTimeOffset now)
+    {
+        if (pace is null)
+        {
+            return string.Empty;
+        }
+
+        if (pace.LimitReached)
+        {
+            return "Limit reached";
+        }
+
+        if (pace.Basis == ClaudePaceBasis.Recent && pace.PercentPerHour <= 0)
+        {
+            return $"No usage in the last {FormatSpan(pace.Span)}";
+        }
+
+        var basis = pace.Basis == ClaudePaceBasis.Recent
+            ? $"At the pace of the last {FormatSpan(pace.Span)}"
+            : "At the average pace since the reset";
+        return pace.ReachedAt is { } reachedAt
+            ? $"{basis}: limit reached {FormatMoment(reachedAt, now)}"
+            : $"{basis}: about {Format.Percent((int)Math.Round(pace.ProjectedPercent, MidpointRounding.AwayFromZero))} by the reset";
+    }
+
+    /// <summary>"45 min", "2 hr" or "1 hr 20 min"; spans within five minutes of a full hour are shown as that hour.</summary>
+    internal static string FormatSpan(TimeSpan span)
+    {
+        var minutes = (int)Math.Round(span.TotalMinutes, MidpointRounding.AwayFromZero);
+        if (minutes < 55)
+        {
+            return string.Create(CultureInfo.CurrentCulture, $"{Math.Max(1, minutes)} min");
+        }
+
+        var hours = (minutes + 5) / 60;
+        var rest = minutes - (hours * 60);
+        return rest is >= -5 and <= 5
+            ? string.Create(CultureInfo.CurrentCulture, $"{hours} hr")
+            : string.Create(CultureInfo.CurrentCulture, $"{minutes / 60} hr {minutes % 60} min");
+    }
+
+    /// <summary>"in 25 min" or "in 2 hr 10 min" within a day, weekday and local time beyond that.</summary>
+    private static string FormatMoment(DateTimeOffset moment, DateTimeOffset now)
+    {
+        var remaining = moment - now;
+        if (remaining < TimeSpan.FromMinutes(1))
+        {
+            return "in less than a minute";
+        }
+
+        if (remaining < TimeSpan.FromHours(1))
+        {
+            return string.Create(CultureInfo.CurrentCulture, $"in {(int)remaining.TotalMinutes} min");
+        }
+
+        if (remaining < TimeSpan.FromHours(24))
+        {
+            return string.Create(CultureInfo.CurrentCulture, $"in {(int)remaining.TotalHours} hr {remaining.Minutes} min");
+        }
+
+        var local = moment.ToLocalTime();
+        return $"{local.ToString("ddd", CultureInfo.CurrentCulture)} {local.ToString("t", CultureInfo.CurrentCulture)}";
     }
 
     /// <summary>Relative text within a day ("Resets in 2 hr 10 min"), weekday and local time beyond that.</summary>

@@ -80,12 +80,59 @@ public sealed class ClaudeUsageTests
         usage.Limits.Select(l => l.PercentText).Should().Equal(Percent(58), Percent(80), Percent(95));
         usage.Limits.Select(l => (l.IsWarning, l.IsCritical)).Should().Equal((false, false), (true, false), (false, true));
         usage.Limits[0].ResetText.Should().Be("Resets in 2 hr 10 min");
-        usage.Limits[0].ToolTip.Should().Be($"Current session (5 hours): {Percent(58)} used · Resets in 2 hr 10 min");
+        usage.Limits[0].ToolTip.Should().StartWith($"Current session (5 hours): {Percent(58)} used · Resets in 2 hr 10 min");
         var reset = T0.AddDays(3).ToLocalTime();
         usage.Limits[1].ResetText.Should().Be($"Resets {reset.ToString("ddd", CultureInfo.CurrentCulture)} {reset.ToString("t", CultureInfo.CurrentCulture)}");
         usage.Limits[1].ResetText.Should().MatchRegex(@"^Resets \S+ \d{1,2}[:.]\d{2}", "weekday and a real time of day");
         usage.Limits[2].DetailTitle.Should().Be("Weekly limit · Fable");
         usage.Limits[2].HasReset.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Pace_is_estimated_from_the_reference_time_chosen_in_settings()
+    {
+        // Issue #18. Weekly limit, reset in 3 days: 40 % two hours ago, 46 % now = 3 %/h, so 54 points last 18 hours.
+        using var monitor = Monitor();
+        using var vm = Widget(monitor);
+        Serve(new ClaudeUsageLimit(ClaudeUsageLimitKind.Weekly, null, 40, T0.AddDays(3).AddHours(2)));
+        await monitor.CheckAsync(CancellationToken.None);
+        var row = vm.Usage.Limits.Single();
+        row.PaceText.Should().StartWith("At the average pace since the reset:", "there is no history yet");
+
+        _time.Advance(TimeSpan.FromHours(2));
+        Serve(new ClaudeUsageLimit(ClaudeUsageLimitKind.Weekly, null, 46, T0.AddDays(3).AddHours(2)));
+        await monitor.CheckAsync(CancellationToken.None);
+
+        row.PaceText.Should().Be("At the pace of the last 2 hr: limit reached in 18 hr 0 min");
+        row.IsPaceWarning.Should().BeTrue();
+        row.HasMarker.Should().BeTrue();
+        row.MarkerPercent.Should().BeApproximately(4d / 7 * 100, 0.01, "4 of 7 days have passed");
+        row.ToolTip.Should().Contain(row.PaceText).And.Contain("The tick marks even use");
+
+        // With a 1-hour reference the same sample is too old; the average since the reset is used instead.
+        await _controller.ApplySettingsAsync(_controller.Settings with { ClaudePaceLookbackHours = 1 }, CancellationToken.None);
+        vm.Usage.UpdateFreshness();
+
+        row.PaceText.Should().StartWith("At the average pace since the reset: about ");
+        row.IsPaceWarning.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Pace_texts_name_their_basis()
+    {
+        var now = T0;
+        string Text(ClaudePaceEstimate? pace) => ClaudeUsageLimitViewModel.FormatPace(pace, now);
+
+        Text(null).Should().BeEmpty();
+        Text(new ClaudePaceEstimate(ClaudePaceBasis.Recent, TimeSpan.Zero, 0, 100, null, true)).Should().Be("Limit reached");
+        Text(new ClaudePaceEstimate(ClaudePaceBasis.Recent, TimeSpan.FromMinutes(118), 0, 50, null, false)).Should().Be("No usage in the last 2 hr");
+        Text(new ClaudePaceEstimate(ClaudePaceBasis.Recent, TimeSpan.FromMinutes(30), 4, 100, now.AddMinutes(25), false))
+            .Should().Be("At the pace of the last 30 min: limit reached in 25 min");
+        Text(new ClaudePaceEstimate(ClaudePaceBasis.Recent, TimeSpan.FromHours(10), 0.2, 64.4, null, false))
+            .Should().Be($"At the pace of the last 10 hr: about {Percent(64)} by the reset");
+        Text(new ClaudePaceEstimate(ClaudePaceBasis.WindowAverage, TimeSpan.FromHours(96), 0.5, 84, null, false))
+            .Should().Be($"At the average pace since the reset: about {Percent(84)} by the reset");
+        ClaudeUsageLimitViewModel.FormatSpan(TimeSpan.FromMinutes(80)).Should().Be("1 hr 20 min");
     }
 
     [Fact]
@@ -190,6 +237,8 @@ public sealed class ClaudeUsageTests
 
         Texts(window).Should().Contain(["Claude usage", "Max plan", "Current session (5 hours)", $"{Percent(58)} used", "Resets in 2 hr 10 min",
             "Weekly limit · all models", $"{Percent(92)} used", "Updated just now"]);
+        Texts(window).Where(t => t.StartsWith("At the average pace since the reset:", StringComparison.Ordinal)).Should().HaveCount(2, "issue #18: one pace line per limit");
+        window.GetVisualDescendants().OfType<GitStatusWidget.Desktop.Controls.PaceMarker>().Should().HaveCount(2).And.OnlyContain(m => m.IsVisible);
         var bars = window.GetVisualDescendants().OfType<ProgressBar>().ToList();
         bars.Select(p => p.Value).Should().Equal(58, 92);
         bars[1].Classes.Should().Contain("critical");

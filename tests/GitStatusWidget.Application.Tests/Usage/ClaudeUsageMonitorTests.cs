@@ -124,6 +124,47 @@ public sealed class ClaudeUsageMonitorTests
         await monitor.StopAsync(CancellationToken.None);
     }
 
+    [Fact]
+    public async Task History_is_loaded_at_start_extended_by_polls_and_saved()
+    {
+        // Issue #18: the pace estimate needs values from before a restart.
+        var store = new HistoryStore
+        {
+            Stored = new ClaudeUsageHistoryData
+            {
+                Series = { ["Weekly"] = [new ClaudeUsageSample(Now.AddHours(-2), 46, Now.AddDays(5))] },
+            },
+        };
+        var source = new FakeSource(new ClaudeUsageResult.Success(Snapshot(50)));
+        using var monitor = new ClaudeUsageMonitor(source, new Controller(new AppSettings { ShowClaudeUsage = true }), _time,
+            NullLogger<ClaudeUsageMonitor>.Instance, store);
+        using var cts = new CancellationTokenSource();
+
+        await monitor.StartAsync(cts.Token);
+        await WaitForAsync(() => store.Saves == 1);
+        await cts.CancelAsync();
+        await monitor.StopAsync(CancellationToken.None);
+
+        monitor.History.Samples(Snapshot().Limits[0]).Select(s => s.Percent).Should().Equal(46, 50);
+        store.Stored!.Series["Weekly"].Select(s => s.Percent).Should().Equal(46, 50);
+    }
+
+    private sealed class HistoryStore : IClaudeUsageHistoryStore
+    {
+        public ClaudeUsageHistoryData? Stored { get; set; }
+
+        public int Saves { get; private set; }
+
+        public Task<ClaudeUsageHistoryData?> LoadAsync(CancellationToken cancellationToken) => Task.FromResult(Stored);
+
+        public Task SaveAsync(ClaudeUsageHistoryData data, CancellationToken cancellationToken)
+        {
+            Stored = data;
+            Saves++;
+            return Task.CompletedTask;
+        }
+    }
+
     private static async Task WaitForAsync(Func<bool> condition)
     {
         for (var i = 0; i < 200 && !condition(); i++)
